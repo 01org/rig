@@ -339,6 +339,8 @@ rut_asset_new_full (RutContext *ctx,
   real_path = path;
 #endif
 
+  rut_object_init (&asset->_parent, &rut_asset_type);
+
   asset->ref_count = 1;
 
   asset->ctx = ctx;
@@ -411,8 +413,6 @@ rut_asset_new_full (RutContext *ctx,
       }
     }
   asset->path = g_strdup (path);
-
-  rut_object_init (&asset->_parent, &rut_asset_type);
 
   //rut_simple_introspectable_init (asset);
 
