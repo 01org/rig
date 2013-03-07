@@ -53,8 +53,6 @@ struct _RigCameraView
   float origin[3];
   //float saved_origin[3];
 
-  float device_scale;
-
   RutEntity *view_camera_to_origin; /* move to origin */
   RutEntity *view_camera_rotate; /* armature rotate rotate */
   RutEntity *view_camera_origin_offset; /* negative offset */
@@ -420,66 +418,14 @@ get_entity_transform_for_2d_view (float fov_y,
 }
 
 static void
-update_view_and_projection (RigCameraView *view)
+allocate_cb (RutObject *graphable,
+             void *user_data)
 {
-  RigEngine *engine = view->engine;
-  float fovy = 10; /* y-axis field of view */
-  float aspect = (float)view->width/(float)view->height;
-  float z_near = 10; /* distance to near clipping plane */
-  float z_far = 100; /* distance to far clipping plane */
-  float x = 0, y = 0, z_2d = 30, w = 1;
-  CoglMatrix inverse;
-  float dx, dy, dz, scale;
-  CoglQuaternion rotation;
-
-  engine->z_2d = z_2d; /* position to 2d plane */
-
-  cogl_matrix_init_identity (&engine->main_view);
-  matrix_view_2d_in_perspective (&engine->main_view,
-                                 fovy, aspect, z_near, engine->z_2d,
-                                 view->width,
-                                 view->height);
-
-  rut_camera_set_projection_mode (view->view_camera_component,
-                                  RUT_PROJECTION_PERSPECTIVE);
-  rut_camera_set_field_of_view (view->view_camera_component, fovy);
-  rut_camera_set_near_plane (view->view_camera_component, z_near);
-  rut_camera_set_far_plane (view->view_camera_component, z_far);
-
-  /* Handle the z_2d translation by changing the length of the
-   * camera's armature.
-   */
-  cogl_matrix_get_inverse (&engine->main_view,
-                           &inverse);
-  cogl_matrix_transform_point (&inverse,
-                               &x, &y, &z_2d, &w);
-
-  view->view_camera_z = z_2d / view->device_scale;
-  rut_entity_set_translate (view->view_camera_armature, 0, 0, view->view_camera_z);
-  //rut_entity_set_translate (view->view_camera_armature, 0, 0, 0);
-
-  get_entity_transform_for_2d_view (fovy,
-                                    aspect,
-                                    z_near,
-                                    engine->z_2d,
-                                    view->width,
-                                    &dx,
-                                    &dy,
-                                    &dz,
-                                    &rotation,
-                                    &scale);
-
-  rut_entity_set_translate (view->view_camera_2d_view, -dx, -dy, -dz);
-  rut_entity_set_rotation (view->view_camera_2d_view, &rotation);
-  rut_entity_set_scale (view->view_camera_2d_view, 1.0 / scale);
-}
-
-static void
-update_device_transforms (RigCameraView *view)
-{
+  RigCameraView *view = RIG_CAMERA_VIEW (graphable);
   RigEngine *engine = view->engine;
   float screen_aspect;
   float main_aspect;
+  float device_scale;
 
   screen_aspect = engine->device_width / engine->device_height;
   main_aspect = view->width / view->height;
@@ -506,22 +452,67 @@ update_device_transforms (RigCameraView *view)
 
   /* NB: We know the screen area matches the device aspect ratio so we can use
    * a uniform scale here... */
-  view->device_scale = engine->screen_area_width / engine->device_width;
+  device_scale = engine->screen_area_width / engine->device_width;
 
-  rut_entity_set_scale (view->view_camera_dev_scale, 1.0 / view->device_scale);
+  rut_entity_set_scale (view->view_camera_dev_scale, 1.0 / device_scale);
 
   /* Setup projection for main content view */
-  update_view_and_projection (view);
-}
+  {
+    float fovy = 10; /* y-axis field of view */
+    float aspect = (float)view->width/(float)view->height;
+    float z_near = 10; /* distance to near clipping plane */
+    float z_far = 100; /* distance to far clipping plane */
+    float x = 0, y = 0, z_2d = 30, w = 1;
+    CoglMatrix inverse;
 
-static void
-allocate_cb (RutObject *graphable,
-             void *user_data)
-{
-  RigCameraView *view = RIG_CAMERA_VIEW (graphable);
-  RigEngine *engine = view->engine;
+    engine->z_2d = z_2d; /* position to 2d plane */
 
-  update_device_transforms (view);
+    cogl_matrix_init_identity (&engine->main_view);
+    matrix_view_2d_in_perspective (&engine->main_view,
+                                   fovy, aspect, z_near, engine->z_2d,
+                                   view->width,
+                                   view->height);
+
+    rut_camera_set_projection_mode (view->view_camera_component,
+                                    RUT_PROJECTION_PERSPECTIVE);
+    rut_camera_set_field_of_view (view->view_camera_component, fovy);
+    rut_camera_set_near_plane (view->view_camera_component, z_near);
+    rut_camera_set_far_plane (view->view_camera_component, z_far);
+
+    /* Handle the z_2d translation by changing the length of the
+     * camera's armature.
+     */
+    cogl_matrix_get_inverse (&engine->main_view,
+                             &inverse);
+    cogl_matrix_transform_point (&inverse,
+                                 &x, &y, &z_2d, &w);
+
+    view->view_camera_z = z_2d / device_scale;
+    rut_entity_set_translate (view->view_camera_armature, 0, 0, view->view_camera_z);
+    //rut_entity_set_translate (view->view_camera_armature, 0, 0, 0);
+
+    rut_camera_set_zoom (view->view_camera_component, 1);
+
+    {
+      float dx, dy, dz, scale;
+      CoglQuaternion rotation;
+
+      get_entity_transform_for_2d_view (fovy,
+                                        aspect,
+                                        z_near,
+                                        engine->z_2d,
+                                        view->width,
+                                        &dx,
+                                        &dy,
+                                        &dz,
+                                        &rotation,
+                                        &scale);
+
+      rut_entity_set_translate (view->view_camera_2d_view, -dx, -dy, -dz);
+      rut_entity_set_rotation (view->view_camera_2d_view, &rotation);
+      rut_entity_set_scale (view->view_camera_2d_view, 1.0 / scale);
+    }
+  }
 
 #ifdef RIG_EDITOR_ENABLED
   if (!_rig_in_device_mode)
@@ -1731,8 +1722,6 @@ initialize_navigation_camera (RigCameraView *view)
   view->view_camera_z = 10.f;
 
   update_camera_position (view);
-
-  update_device_transforms (view);
 }
 
 void

@@ -26,6 +26,8 @@
 #include <math.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <glib-object.h>
+
 
 #include <cogl/cogl.h>
 
@@ -83,6 +85,14 @@ static RutPropertySpec rut_data_property_specs[] = {
 
 static void
 rig_load_asset_list (RigEngine *engine);
+
+static void
+rig_refresh_thumbnails (gpointer instance,
+                        gpointer user_data);
+                        
+static void
+rig_video_force_redraw (gpointer instance,
+                        gpointer user_data);
 
 #ifdef RIG_EDITOR_ENABLED
 CoglBool _rig_in_device_mode = FALSE;
@@ -635,6 +645,7 @@ asset_input_cb (RutInputRegion *region,
             case RUT_ASSET_TYPE_TEXTURE:
             case RUT_ASSET_TYPE_NORMAL_MAP:
             case RUT_ASSET_TYPE_ALPHA_MASK:
+            case RUT_ASSET_TYPE_VIDEO:
               {
                 int width, height;
 
@@ -643,16 +654,49 @@ asset_input_cb (RutInputRegion *region,
                 if (material)
                   {
                     if (type == RUT_ASSET_TYPE_TEXTURE)
-                      rut_material_set_texture_asset (material, asset);
+                      {
+                        rut_material_set_texture_asset (material, asset);
+                        g_warning ("texture");
+                      }
                     else if (type == RUT_ASSET_TYPE_NORMAL_MAP)
                       rut_material_set_normal_map_asset (material, asset);
                     else if (type == RUT_ASSET_TYPE_ALPHA_MASK)
                       rut_material_set_alpha_mask_asset (material, asset);
+                    else if (type == RUT_ASSET_TYPE_VIDEO)
+                      {
+                        rut_material_set_video_texture_asset (engine->ctx, 
+                                                              material, asset);
+                        
+                        if (material->sink)
+                          {
+                            g_signal_connect (material->sink, "pipeline-ready", 
+                                              G_CALLBACK (rig_prepare_pointalism_pipeline), 
+                                              entity);
+
+                            g_signal_connect (material->sink, "new-frame", 
+                                              G_CALLBACK (rig_video_force_redraw), 
+                                              engine);
+                          }
+                      }
                   }
                 else
                   {
                     material = rut_material_new (engine->ctx, asset);
                     rut_entity_add_component (entity, material);
+                    
+                    if (type == RUT_ASSET_TYPE_VIDEO)
+                      {
+                        if (material->sink)
+                          {
+                            g_signal_connect (material->sink, "pipeline-ready", 
+                                              G_CALLBACK (rig_prepare_pointalism_pipeline), 
+                                              entity);
+
+                            g_signal_connect (material->sink, "new-frame", 
+                                              G_CALLBACK (rig_video_force_redraw), 
+                                              engine);
+                          }
+                      }
                   }
 
                 texture = rut_asset_get_texture (asset);
@@ -916,6 +960,7 @@ add_asset_icon (RigEngine *engine,
   rut_refable_unref (stack);
 
   texture = rut_asset_get_texture (asset);
+
   if (texture)
     {
       image = rut_image_new (engine->ctx, texture);
@@ -986,6 +1031,23 @@ rig_search_asset_list (RigEngine *engine, const char *search)
     }
 
   return found;
+}
+
+static void
+rig_refresh_thumbnails (gpointer instance,
+                        gpointer user_data)
+{
+  RigEngine* engine = (RigEngine*) user_data;
+  
+  rig_search_asset_list (engine, NULL);
+}
+
+static void
+rig_video_force_redraw (gpointer instance,
+                        gpointer user_data)
+{
+  RigEngine* engine = (RigEngine*) user_data;
+  rig_engine_paint (engine->shell, engine);
 }
 
 static void
@@ -2243,6 +2305,9 @@ rig_load_asset (RigEngine *engine, GFileInfo *info, GFile *asset_file)
     asset = rut_asset_new_texture (engine->ctx, path);
   else if (rut_util_find_tag (inferred_tags, "ply"))
     asset = rut_asset_new_ply_model (engine->ctx, path);
+  else if (rut_util_find_tag (inferred_tags, "video"))
+    asset = rut_asset_new_video (engine->ctx, path, (GCallback) rig_refresh_thumbnails, 
+                                 engine);
 
   if (asset)
     rut_asset_set_inferred_tags (asset, inferred_tags);
@@ -2263,8 +2328,9 @@ add_asset (RigEngine *engine, GFileInfo *info, GFile *asset_file)
 {
   GFile *assets_dir = g_file_new_for_path (engine->ctx->assets_location);
   char *path = g_file_get_relative_path (assets_dir, asset_file);
+  char *thumbnail = "rig_thumbnail.jpg";
   GList *l;
-  RutAsset *asset;
+  RutAsset *asset = NULL;
 
   /* Avoid loading duplicate assets... */
   for (l = engine->assets; l; l = l->next)
@@ -2274,8 +2340,11 @@ add_asset (RigEngine *engine, GFileInfo *info, GFile *asset_file)
       if (strcmp (rut_asset_get_path (existing), path) == 0)
         return;
     }
+  
+  
+  if (strcmp (g_file_get_basename (asset_file), thumbnail) != 0)
+    asset = rig_load_asset (engine, info, asset_file);
 
-  asset = rig_load_asset (engine, info, asset_file);
   if (asset)
     engine->assets = g_list_prepend (engine->assets, asset);
 }
