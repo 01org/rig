@@ -55,9 +55,9 @@ _rig_transition_type_init (void)
 }
 
 static void
-free_prop_data_cb (void *engine)
+free_prop_data_cb (void *user_data)
 {
-  RigTransitionPropData *prop_data = engine;
+  RigTransitionPropData *prop_data = user_data;
 
   if (prop_data->path)
     rut_refable_unref (prop_data->path);
@@ -99,14 +99,6 @@ rig_transition_new (RutContext *context,
                                                   g_direct_equal,
                                                   NULL, /* key_destroy */
                                                   free_prop_data_cb);
-
-#if 0
-  rut_property_set_binding (&transition->props[RUT_TRANSITION_PROP_PROGRESS],
-                            update_transition_progress_cb,
-                            engine,
-                            engine->timeline_elapsed,
-                            NULL);
-#endif
 
   return transition;
 }
@@ -264,10 +256,9 @@ foreach_path_cb (void *key,
                  void *user_data)
 {
   RigTransitionPropData *prop_data = value;
-  ForeachPathData *engine = user_data;
+  ForeachPathData *foreach_data = user_data;
 
-  engine->callback (prop_data,
-                  engine->user_data);
+  foreach_data->callback (prop_data, foreach_data->user_data);
 }
 
 void
@@ -275,14 +266,14 @@ rig_transition_foreach_property (RigTransition *transition,
                                  RigTransitionForeachPropertyCb callback,
                                  void *user_data)
 {
-  ForeachPathData engine;
+  ForeachPathData foreach_data;
 
-  engine.callback = callback;
-  engine.user_data = user_data;
+  foreach_data.callback = callback;
+  foreach_data.user_data = user_data;
 
   g_hash_table_foreach (transition->properties,
                         foreach_path_cb,
-                        &engine);
+                        &foreach_data);
 }
 
 void

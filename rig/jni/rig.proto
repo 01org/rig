@@ -56,6 +56,11 @@ message Texture
   optional sint64 asset_id=1;
 }
 
+message Video
+{
+  optional sint64 asset_id=1;
+}
+
 message NormalMap
 {
   optional sint64 asset_id=1;
@@ -104,6 +109,7 @@ message Entity
           optional Texture texture=5;
           optional NormalMap normal_map=6;
           optional AlphaMask alpha_mask=7;
+          optional Video video=8;
         }
 
       message Shape

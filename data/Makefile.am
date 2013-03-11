@@ -13,6 +13,7 @@ dist_assets_DATA = \
 	slider-handle.png \
 	light-bulb.png \
 	light.ply \
+	camera-model.ply \
 	record-button.png \
 	record-button-selected.png \
 	scroll-button-left-active.png \
@@ -35,7 +36,9 @@ dist_assets_DATA = \
 	left-drop-shadow.png \
 	bottom-drop-shadow.png \
 	tri-fold-up.png \
-	tri-fold-down.png
+	tri-fold-down.png \
+	magnifying-glass.png \
+	thumb-video.png
 
 if HAVE_GTK
 dist_assets_DATA += \

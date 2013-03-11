@@ -269,7 +269,7 @@ rig_split_view_get_preferred_width (void *object,
     }
 
   if (min_width_p)
-    *min_width_p = max_natural_width;
+    *min_width_p = max_min_width;
   if (natural_width_p)
     *natural_width_p = max_natural_width;
 }
@@ -321,7 +321,7 @@ rig_split_view_get_preferred_height (void *object,
     }
 
   if (min_height_p)
-    *min_height_p = max_natural_height;
+    *min_height_p = max_min_height;
   if (natural_height_p)
     *natural_height_p = max_natural_height;
 }

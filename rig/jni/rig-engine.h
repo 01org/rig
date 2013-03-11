@@ -138,7 +138,12 @@ struct _RigEngine
 
   RutUIViewport *assets_vp;
   RutFold *assets_results_fold;
-  RutFlowLayout *assets_flow;
+  RutBoxLayout *assets_results_vbox;
+  RutFlowLayout *assets_geometry_results;
+  RutFlowLayout *assets_image_results;
+  RutFlowLayout *assets_video_results;
+  RutFlowLayout *assets_other_results;
+
   RutAsset *text_builtin_asset;
   RutAsset *circle_builtin_asset;
   RutAsset *diamond_builtin_asset;
@@ -158,6 +163,12 @@ struct _RigEngine
 
   RutEntity *light;
   RutEntity *light_handle;
+
+  RutEntity *play_camera;
+  RutCamera *play_camera_component;
+#ifdef RIG_EDITOR_ENABLED
+  RutEntity *play_camera_handle;
+#endif
 
   /* postprocessing */
   CoglFramebuffer *postprocess;
