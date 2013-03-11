@@ -430,12 +430,7 @@ rut_material_video_play (RutMaterial *material,
                                      NULL);
 
   if (material->sink)
-    {
-      gst_element_set_state (material->pipeline, GST_STATE_NULL);
-      g_object_unref (material->sink);
-      g_object_unref (material->pipeline);
-      g_object_unref (material->bin);
-    }
+    gst_element_set_state (material->pipeline, GST_STATE_NULL);
 
   material->sink = cogl_gst_video_sink_new (ctx->cogl_context);
   material->pipeline = gst_pipeline_new ("renderer");
