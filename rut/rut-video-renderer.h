@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library. If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #ifndef RUT_VIDEO_RENDERER_H
 #define RUT_VIDEO_RENDERER_H
 
@@ -27,6 +27,7 @@ typedef struct _RutGridVector
   float x, y, z;
   float s, t;
   float s1, s2, t1, t2;
+  float s3, t3;
   float xs, ys;
 }RutGridVector;
 
@@ -42,13 +43,13 @@ typedef struct _RutGridMesh
   int num_polygons;
   int num_vectors;
 }RutGridMesh;
- 
+
 typedef struct _RutVideoRenderer
 {
   int num_columns;
   int num_rows;
   RutGridMesh *grid;
-  CoglAttribute *attributes[4];
+  CoglAttribute *attributes[5];
   CoglIndices *indices;
 }RutVideoRenderer;
 

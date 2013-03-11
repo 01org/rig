@@ -49,6 +49,8 @@ generate_grid (int columns, int rows, float size)
           mesh->vectors[i].t1 = row_counter * t_iter;
           mesh->vectors[i].s2 = (col_counter + 1) * s_iter;
           mesh->vectors[i].t2 = (row_counter + 1) * t_iter;
+          mesh->vectors[i].s3 = col_counter * s_iter;
+          mesh->vectors[i].t3 = row_counter * t_iter;
           i++;
           
           mesh->vectors[i].x = (size / 2);
@@ -62,6 +64,8 @@ generate_grid (int columns, int rows, float size)
           mesh->vectors[i].t1 = row_counter * t_iter;
           mesh->vectors[i].s2 = (col_counter + 1) * s_iter;
           mesh->vectors[i].t2 = (row_counter + 1) * t_iter;
+          mesh->vectors[i].s3 = (col_counter + 1) * s_iter;
+          mesh->vectors[i].t3 = row_counter * t_iter;
           i++;
 
           mesh->vectors[i].x = (size / 2);
@@ -75,8 +79,10 @@ generate_grid (int columns, int rows, float size)
           mesh->vectors[i].t1 = row_counter * t_iter;
           mesh->vectors[i].s2 = (col_counter + 1) * s_iter;
           mesh->vectors[i].t2 = (row_counter + 1) * t_iter;
+          mesh->vectors[i].s3 = (col_counter + 1) * s_iter;
+          mesh->vectors[i].t3 = (row_counter + 1) * t_iter;
           i++;
-          
+
           mesh->vectors[i].x = (-1 * (size / 2));
           mesh->vectors[i].y = (size / 2);
           mesh->vectors[i].z = 1;
@@ -88,6 +94,8 @@ generate_grid (int columns, int rows, float size)
           mesh->vectors[i].t1 = row_counter * t_iter;
           mesh->vectors[i].s2 = (col_counter + 1) * s_iter;
           mesh->vectors[i].t2 = (row_counter + 1) * t_iter;
+          mesh->vectors[i].s3 = col_counter * s_iter;
+          mesh->vectors[i].t3 = (row_counter + 1) * t_iter;
           i++;
           
           mesh->polygons[j].indices[0] = i - 4;
@@ -129,19 +137,25 @@ rut_video_renderer_new (CoglContext *ctx, int cols, int rows, float size)
                                                 offsetof (RutGridVector, x), 3,
                                                 COGL_ATTRIBUTE_TYPE_FLOAT);
                                       
-  renderer->attributes[1] = cogl_attribute_new (vertex_buffer, 
-                                                "cogl_tex_coord_in", 
-                                                sizeof (RutGridVector), 
+  renderer->attributes[1] = cogl_attribute_new (vertex_buffer,
+                                                "cogl_tex_coord0_in",
+                                                sizeof (RutGridVector),
                                                 offsetof (RutGridVector, s), 2,
                                                 COGL_ATTRIBUTE_TYPE_FLOAT);
                                       
-  renderer->attributes[2] = cogl_attribute_new (vertex_buffer, 
-                                                "cell_st", 
-                                                sizeof (RutGridVector), 
+  renderer->attributes[2] = cogl_attribute_new (vertex_buffer,
+                                                "cell_st",
+                                                sizeof (RutGridVector),
                                                 offsetof (RutGridVector, s1), 4,
                                                 COGL_ATTRIBUTE_TYPE_FLOAT);
+
+  renderer->attributes[3] = cogl_attribute_new (vertex_buffer,
+                                                "cogl_tex_coord1_in",
+                                                sizeof (RutGridVector),
+                                                offsetof (RutGridVector, s3), 2,
+                                                COGL_ATTRIBUTE_TYPE_FLOAT);
                                       
-  renderer->attributes[3] = cogl_attribute_new (vertex_buffer, 
+  renderer->attributes[4] = cogl_attribute_new (vertex_buffer,
                                                 "cell_xy", 
                                                 sizeof (RutGridVector), 
                                                 offsetof (RutGridVector, xs), 2,
