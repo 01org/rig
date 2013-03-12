@@ -93,7 +93,6 @@ static RutPropertySpec _rut_material_prop_specs[] = {
     .flags = RUT_PROPERTY_FLAG_READWRITE |
       RUT_PROPERTY_FLAG_VALIDATE,
     .validation = { .float_range = { 0, 100 }},
-    .animatable = TRUE
   },
   {
     .name = "pointalism-z",
@@ -104,7 +103,38 @@ static RutPropertySpec _rut_material_prop_specs[] = {
     .flags = RUT_PROPERTY_FLAG_READWRITE |
       RUT_PROPERTY_FLAG_VALIDATE,
     .validation = { .float_range = { 0, 100 }},
-    .animatable = TRUE
+  },
+  {
+    .name = "pointalism-cols",
+    .nick = "Pointalism Columns",
+    .type = RUT_PROPERTY_TYPE_INTEGER,
+    .getter.integer_type = rut_material_get_pointalism_columns,
+    .setter.integer_type = rut_material_set_pointalism_columns,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .default_value = { .integer = 50 },
+    .validation = { .int_range = { .min = 0, .max = INT_MAX}}
+  },
+  {
+    .name = "pointalism-rows",
+    .nick = "Pointalism Rows",
+    .type = RUT_PROPERTY_TYPE_INTEGER,
+    .getter.integer_type = rut_material_get_pointalism_rows,
+    .setter.integer_type = rut_material_set_pointalism_rows,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .default_value = { .integer = 37 },
+    .validation = { .int_range = { .min = 0, .max = INT_MAX}}
+  },
+  {
+    .name = "pointalism-cell-size",
+    .nick = "Pointalism Cell Size",
+    .type = RUT_PROPERTY_TYPE_FLOAT,
+    .getter.float_type = rut_material_get_pointalism_cell_size,
+    .setter.float_type = rut_material_set_pointalism_cell_size,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .validation = { .float_range = { 0, 100 }},
   },
   { 0 }
 };
@@ -646,15 +676,6 @@ rut_material_set_pointalism_z (RutObject *obj,
                      &material->properties[RUT_MATERIAL_PROP_POINTALISM_Z]);
 }
 
-/*
-int
-rut_material_get_pointalism_columns (RutObject *obj)
-{
-  RutMaterial *material = RUT_MATERIAL (obj);
-
-  return material->pointalism_columns;
-}
-
 void
 rut_material_set_pointalism_columns (RutObject *obj,
                                      int cols)
@@ -663,16 +684,24 @@ rut_material_set_pointalism_columns (RutObject *obj,
   RutEntity *entity;
   RutContext *ctx;
 
-  if (cols == material->pointalism_columns)
-    return;
+  if (material->pointalism_columns != cols)
+    {
+      material->pointalism_columns = cols;
 
-  material->pointalism_columns = cols;
+      entity = material->component.entity;
+      ctx = rut_entity_get_context (entity);
+      rut_property_dirty (&ctx->property_ctx,
+                     &material->properties[RUT_MATERIAL_PROP_POINTALISM_COLS]);
+      rut_material_reset_video_texture_renderer (material, ctx);
+    }
+}
 
-  entity = material->component.entity;
-  ctx = rut_entity_get_context (entity);
-  rut_property_dirty (&ctx->property_ctx,
-                   &material->properties[RUT_MATERIAL_PROP_POINTALISM_COLUMNS]);
-  rut_material_reset_video_texture_renderer (material, ctx);
+int
+rut_material_get_pointalism_columns (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_columns;
 }
 
 int
@@ -729,7 +758,7 @@ rut_material_set_pointalism_cell_size (RutObject *obj,
   rut_property_dirty (&ctx->property_ctx,
                  &material->properties[RUT_MATERIAL_PROP_POINTALISM_CELL_SIZE]);
   rut_material_reset_video_texture_renderer (material, ctx);
-}*/
+}
 
 void
 rut_material_flush_uniforms (RutMaterial *material,

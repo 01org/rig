@@ -37,6 +37,9 @@ enum {
   RUT_MATERIAL_PROP_POINTALISM_ON,
   RUT_MATERIAL_PROP_POINTALISM_SCALE,
   RUT_MATERIAL_PROP_POINTALISM_Z,
+  RUT_MATERIAL_PROP_POINTALISM_COLS,
+  RUT_MATERIAL_PROP_POINTALISM_ROWS,
+  RUT_MATERIAL_PROP_POINTALISM_CELL_SIZE,
   RUT_MATERIAL_N_PROPS
 };
 
@@ -173,10 +176,10 @@ rut_material_set_pointalism_z (RutObject *obj,
                                float z);
 
 int
-rut_material_get_pointalism_columns (RutObject *material);
+rut_material_get_pointalism_columns (RutObject *obj);
 
 void
-rut_material_set_pointalism_columns (RutObject *material,
+rut_material_set_pointalism_columns (RutObject *obj,
                                      int cols);
 
 int
