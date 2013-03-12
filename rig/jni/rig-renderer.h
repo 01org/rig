@@ -60,8 +60,4 @@ rig_renderer_init (RigEngine *engine);
 void
 rig_renderer_fini (RigEngine *engine);
 
-void
-rig_prepare_pointalism_pipeline (gpointer instace,
-                                 gpointer user_data);
-
 #endif /* _RIG_RENDERER_H_ */

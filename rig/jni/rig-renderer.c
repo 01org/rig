@@ -669,19 +669,16 @@ rig_prepare_pointalism_pipeline (gpointer instace,
 
           cogl_pipeline_add_snippet (pln[2], snippet);
           cogl_object_unref (snippet);
-
           shape_texture =
             rut_shape_get_shape_texture (RUT_SHAPE (geometry));
-          cogl_pipeline_set_layer_texture (pln[2], free_layer, shape_texture);
+          cogl_pipeline_set_layer_texture (pln[2], free_layer,
+                                           shape_texture);
+          rut_shape_add_reshaped_callback (RUT_SHAPE (geometry), reshape_cb,
+                                                      NULL, NULL);
 
           location = cogl_pipeline_get_uniform_location (pln[2],"shape");
           cogl_pipeline_set_uniform_1i (pln[2], location, free_layer);
         }
-
-      rut_shape_add_reshaped_callback (RUT_SHAPE (geometry),
-                                       reshape_cb,
-                                       NULL,
-                                       NULL);
     }
 
   snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX_TRANSFORM,

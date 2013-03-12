@@ -674,10 +674,6 @@ asset_input_cb (RutInputRegion *region,
 
                         if (material->sink)
                           {
-                            g_signal_connect (material->sink, "pipeline-ready",
-                                              G_CALLBACK (rig_prepare_pointalism_pipeline),
-                                              entity);
-
                             g_signal_connect (material->sink, "new-frame",
                                               G_CALLBACK (rig_video_force_redraw),
                                               engine);
@@ -693,10 +689,6 @@ asset_input_cb (RutInputRegion *region,
                       {
                         if (material->sink)
                           {
-                            g_signal_connect (material->sink, "pipeline-ready",
-                                              G_CALLBACK (rig_prepare_pointalism_pipeline),
-                                              entity);
-
                             g_signal_connect (material->sink, "new-frame",
                                               G_CALLBACK (rig_video_force_redraw),
                                               engine);
