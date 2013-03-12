@@ -112,6 +112,7 @@ reshape_cb (RutShape *shape, void *user_data)
     rut_object_get_properties (shape, RUT_INTERFACE_ID_COMPONENTABLE);
   RutEntity *entity = componentable->entity;
   rig_dirty_entity_pipelines (entity);
+  rig_dirty_video_pipelines (entity);
 }
 
 static void
@@ -633,6 +634,9 @@ rig_prepare_pointalism_pipeline (gpointer instace,
   if (!cogl_gst_video_sink_get_pipeline (material->sink))
     return;
 
+  rig_dirty_video_pipelines (entity);
+  material->video_pln_dirty = FALSE;
+
   for (i = 0; i < 3; i++)
     pln[i] = cogl_pipeline_copy (cogl_gst_video_sink_get_pipeline (material->sink));
 
@@ -844,7 +848,7 @@ get_entity_video_pipeline (RigEngine *engine,
       halo = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO);
       opaque = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE);
 
-      if (!halo || !opaque)
+      if (!halo || !opaque || material->video_pln_dirty)
         {
           rig_prepare_pointalism_pipeline (material->sink, entity);
           halo = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO);
@@ -867,7 +871,7 @@ get_entity_video_pipeline (RigEngine *engine,
   else
     {
       pln = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_VIDEO);
-      if (!pln)
+      if (!pln || material->video_pln_dirty)
         {
           rig_prepare_pointalism_pipeline (material->sink, entity);
           pln = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_VIDEO);
@@ -1488,7 +1492,18 @@ rig_dirty_entity_pipelines (RutEntity *entity)
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_COLOR_UNBLENDED, NULL);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_COLOR_BLENDED, NULL);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_SHADOW, NULL);
-  rut_entity_set_pipeline_cache (entity, CACHE_SLOT_VIDEO, NULL);
-  rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE, NULL);
-  rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO, NULL);
+}
+
+void
+rig_dirty_video_pipelines (RutEntity *entity)
+{
+  RutMaterial *material;
+  material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
+
+  if (cogl_gst_video_sink_get_pipeline (material->sink))
+    {
+      rut_entity_set_pipeline_cache (entity, CACHE_SLOT_VIDEO, NULL);
+      rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE, NULL);
+      rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO, NULL);
+    }
 }

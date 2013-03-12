@@ -1131,7 +1131,7 @@ rig_video_force_redraw (gpointer instance,
                         gpointer user_data)
 {
   RigEngine* engine = (RigEngine*) user_data;
-  rig_engine_paint (engine->shell, engine);
+  rut_shell_queue_redraw (engine->shell);
 }
 
 static void

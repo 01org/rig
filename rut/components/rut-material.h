@@ -65,6 +65,7 @@ struct _RutMaterial
   CoglColor specular;
   float shininess;
   CoglBool pointalism_on;
+  CoglBool video_pln_dirty;
   int pointalism_columns;
   int pointalism_rows;
   float pointalism_cell_size;

@@ -194,6 +194,7 @@ rut_material_new (RutContext *ctx,
   material->pointalism_scale = 1;
   material->pointalism_z = 1;
   material->sink = NULL;
+  material->video_pln_dirty = FALSE;
 
   rut_simple_introspectable_init (material,
                                   _rut_material_prop_specs,
@@ -229,6 +230,7 @@ rut_material_new (RutContext *ctx,
                                                              material->pointalism_cell_size);
           material->circle_shape = ctx->circle_texture;
           rut_material_video_play (material, ctx);
+          material->video_pln_dirty = TRUE;
           break;
         default:
           g_warn_if_reached ();
@@ -371,6 +373,7 @@ rut_material_set_video_texture_asset (RutMaterial *material,
                                 material->pointalism_cell_size);
       material->circle_shape = material->ctx->circle_texture;
       rut_material_video_play (material, material->ctx);
+      material->video_pln_dirty = TRUE;
     }
 }
 
