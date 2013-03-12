@@ -332,11 +332,11 @@ rut_material_set_video_texture_asset (RutMaterial *material,
     {
       rut_refable_unref (material->texture_asset);
       material->texture_asset = NULL;
-      rut_material_video_stop (material);
     }
 
   if (material->video_texture_asset)
     {
+      rut_material_video_stop (material);
       rut_refable_unref (material->video_texture_asset);
       material->video_texture_asset = NULL;
     }
@@ -408,13 +408,13 @@ loop_video (GstBus *bus,
             GstMessage *msg,
             void *data)
 {
-  GstElement *pipeline = GST_ELEMENT(data);
+  RutMaterial *material = (RutMaterial*) data;
   switch (GST_MESSAGE_TYPE(msg))
     {
       case GST_MESSAGE_EOS:
-        gst_element_seek (pipeline, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
-                          GST_SEEK_TYPE_SET, 0, GST_SEEK_TYPE_NONE,
-                          GST_CLOCK_TIME_NONE);
+        gst_element_seek (material->pipeline, 1.0, GST_FORMAT_TIME,
+                          GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, 0,
+                          GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
         break;
       default:
         break;
@@ -445,9 +445,9 @@ rut_material_video_play (RutMaterial *material,
   gst_bin_add (GST_BIN (material->pipeline), material->bin);
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (material->pipeline));
-  gst_bus_add_watch (bus, loop_video, material->pipeline);
 
   gst_element_set_state (material->pipeline, GST_STATE_PLAYING);
+  gst_bus_add_watch (bus, loop_video, material);
 
   g_free (uri);
   g_free (filename);
@@ -460,7 +460,7 @@ rut_material_video_stop (RutMaterial *material)
   if (material->sink)
     {
       gst_element_set_state (material->pipeline, GST_STATE_NULL);
-      g_object_unref (material->sink);
+      gst_object_unref (material->sink);
     }
 }
 

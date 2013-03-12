@@ -614,25 +614,24 @@ get_light_modelviewprojection (const CoglMatrix *model_transform,
   cogl_matrix_multiply (light_mvp, light_mvp, model_transform);
 }
 
-void
-rig_prepare_pointalism_pipeline (gpointer instace,
-                                 gpointer user_data)
+CoglBool
+rig_prepare_pointalism_pipeline (RutEntity *entity)
 {
   CoglPipeline *pln[3];
   CoglSnippet *snippet;
-  RutEntity *entity = (RutEntity*) user_data;
   RutMaterial *material;
   RutComponent *geometry;
   int location, free_layer, i;
   CoglDepthState depth_state[2];
   CoglTexture *shape_texture;
   CoglBool has_shape = FALSE;
+  CoglBool is_diamond = FALSE;
 
   material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
   geometry = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_GEOMETRY);
 
   if (!cogl_gst_video_sink_get_pipeline (material->sink))
-    return;
+    return FALSE;
 
   rig_dirty_video_pipelines (entity);
   material->video_pln_dirty = FALSE;
@@ -660,29 +659,44 @@ rig_prepare_pointalism_pipeline (gpointer instace,
         {
           shape_texture = rut_shape_get_shape_texture (RUT_SHAPE (geometry));
           has_shape = TRUE;
+          rut_shape_add_reshaped_callback (RUT_SHAPE (geometry), reshape_cb,
+                                                      NULL, NULL);
+        }
+    }
+  else if (rut_object_get_type (geometry) == &rut_diamond_type)
+    {
+      has_shape = TRUE;
+      shape_texture = material->circle_shape;
+      is_diamond = TRUE;
+    }
 
-          snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
-            "uniform sampler2D shape;\n",
-            NULL
+  if (has_shape && shape_texture)
+    {
+      snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+        "uniform sampler2D shape;\n",
+         NULL
+      );
+
+      if (is_diamond)
+        {
+          cogl_snippet_set_replace (snippet,
+            "cogl_color_out = cogl_gst_sample_video (cogl_tex_coord1_in.st);\n"
+            "cogl_color_out *= texture2D (shape, cogl_tex_coord0_in.st);\n"
           );
-
+        }
+      else
+        {
           cogl_snippet_set_replace (snippet,
             "cogl_color_out = cogl_gst_sample_video (cogl_tex_coord0_in.st);\n"
             "cogl_color_out *= texture2D (shape, cogl_tex_coord0_in.st);\n"
           );
-
-          cogl_pipeline_add_snippet (pln[2], snippet);
-          cogl_object_unref (snippet);
-          shape_texture =
-            rut_shape_get_shape_texture (RUT_SHAPE (geometry));
-          cogl_pipeline_set_layer_texture (pln[2], free_layer,
-                                           shape_texture);
-          rut_shape_add_reshaped_callback (RUT_SHAPE (geometry), reshape_cb,
-                                                      NULL, NULL);
-
-          location = cogl_pipeline_get_uniform_location (pln[2],"shape");
-          cogl_pipeline_set_uniform_1i (pln[2], location, free_layer);
         }
+
+      cogl_pipeline_add_snippet (pln[2], snippet);
+      cogl_object_unref (snippet);
+      cogl_pipeline_set_layer_texture (pln[2], free_layer, shape_texture);
+      location = cogl_pipeline_get_uniform_location (pln[2],"shape");
+      cogl_pipeline_set_uniform_1i (pln[2], location, free_layer);
     }
 
   snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX_TRANSFORM,
@@ -723,7 +737,7 @@ rig_prepare_pointalism_pipeline (gpointer instace,
   cogl_pipeline_add_snippet (pln[1], snippet);
   cogl_object_unref (snippet);
 
-  if (!has_shape)
+  if (!has_shape || is_diamond)
     {
       snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
         "uniform sampler2D circle;\n"
@@ -761,7 +775,7 @@ rig_prepare_pointalism_pipeline (gpointer instace,
   cogl_pipeline_add_snippet (pln[0], snippet);
   cogl_object_unref (snippet);
 
-  if (!has_shape)
+  if (!has_shape || is_diamond)
     {
       snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
         "uniform sampler2D circle;\n"
@@ -815,7 +829,7 @@ rig_prepare_pointalism_pipeline (gpointer instace,
       location = cogl_pipeline_get_uniform_location (pln[i], "anti_scale");
       cogl_pipeline_set_uniform_1i (pln[i], location, 1);
 
-      if (has_shape)
+      if (has_shape && !is_diamond)
         {
           cogl_pipeline_set_layer_texture (pln[i], free_layer, shape_texture);
           location = cogl_pipeline_get_uniform_location (pln[i], "shape");
@@ -830,6 +844,8 @@ rig_prepare_pointalism_pipeline (gpointer instace,
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO, pln[0]);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE, pln[1]);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_VIDEO, pln[2]);
+
+  return TRUE;
 }
 
 static CoglPipeline *
@@ -850,7 +866,7 @@ get_entity_video_pipeline (RigEngine *engine,
 
       if (!halo || !opaque || material->video_pln_dirty)
         {
-          rig_prepare_pointalism_pipeline (material->sink, entity);
+          rig_prepare_pointalism_pipeline (entity);
           halo = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO);
           opaque = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE);
         }
@@ -873,7 +889,7 @@ get_entity_video_pipeline (RigEngine *engine,
       pln = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_VIDEO);
       if (!pln || material->video_pln_dirty)
         {
-          rig_prepare_pointalism_pipeline (material->sink, entity);
+          rig_prepare_pointalism_pipeline (entity);
           pln = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_VIDEO);
         }
       cogl_gst_video_sink_attach_frame (material->sink, pln);
@@ -1489,9 +1505,14 @@ rig_paint_camera_entity (RutEntity *camera, RigPaintContext *paint_ctx)
 void
 rig_dirty_entity_pipelines (RutEntity *entity)
 {
+  RutMaterial *material;
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_COLOR_UNBLENDED, NULL);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_COLOR_BLENDED, NULL);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_SHADOW, NULL);
+
+  material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
+  if (material)
+    material->video_pln_dirty = TRUE;
 }
 
 void
