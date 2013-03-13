@@ -40,6 +40,7 @@ enum {
   RUT_MATERIAL_PROP_POINTALISM_COLS,
   RUT_MATERIAL_PROP_POINTALISM_ROWS,
   RUT_MATERIAL_PROP_POINTALISM_CELL_SIZE,
+  RUT_MATERIAL_PROP_POINTALISM_LIGHTER,
   RUT_MATERIAL_N_PROPS
 };
 
@@ -68,7 +69,7 @@ struct _RutMaterial
   CoglColor specular;
   float shininess;
   CoglBool pointalism_on;
-  CoglBool video_pln_dirty;
+  CoglBool pointalism_lighter;
   int pointalism_columns;
   int pointalism_rows;
   float pointalism_cell_size;
@@ -195,6 +196,13 @@ rut_material_get_pointalism_cell_size (RutObject *material);
 void
 rut_material_set_pointalism_cell_size (RutObject *material,
                                        float size);
+
+CoglBool
+rut_material_get_pointalism_lighter (RutObject *material);
+
+void
+rut_material_set_pointalism_lighter (RutObject *material,
+                                     CoglBool lighter);
 
 void
 rut_material_flush_uniforms (RutMaterial *material,

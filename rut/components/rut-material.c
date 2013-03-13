@@ -136,6 +136,14 @@ static RutPropertySpec _rut_material_prop_specs[] = {
       RUT_PROPERTY_FLAG_VALIDATE,
     .validation = { .float_range = { 0, 100 }},
   },
+  {
+    .name = "pointalism-lighter",
+    .nick = "Pointalism Lighter",
+    .type = RUT_PROPERTY_TYPE_BOOLEAN,
+    .getter.boolean_type = rut_material_get_pointalism_lighter,
+    .setter.boolean_type = rut_material_set_pointalism_lighter,
+    .flags = RUT_PROPERTY_FLAG_READWRITE,
+  },
   { 0 }
 };
 
@@ -218,13 +226,13 @@ rut_material_new (RutContext *ctx,
 
   material->shininess = 100;
   material->pointalism_on = FALSE;
+  material->pointalism_lighter = TRUE;
   material->pointalism_cell_size = 10;
   material->pointalism_columns = 50;
   material->pointalism_rows = 37;
   material->pointalism_scale = 1;
   material->pointalism_z = 1;
   material->sink = NULL;
-  material->video_pln_dirty = FALSE;
 
   rut_simple_introspectable_init (material,
                                   _rut_material_prop_specs,
@@ -260,7 +268,6 @@ rut_material_new (RutContext *ctx,
                                                              material->pointalism_cell_size);
           material->circle_shape = ctx->circle_texture;
           rut_material_video_play (material, ctx);
-          material->video_pln_dirty = TRUE;
           break;
         default:
           g_warn_if_reached ();
@@ -403,7 +410,6 @@ rut_material_set_video_texture_asset (RutMaterial *material,
                                 material->pointalism_cell_size);
       material->circle_shape = material->ctx->circle_texture;
       rut_material_video_play (material, material->ctx);
-      material->video_pln_dirty = TRUE;
     }
 }
 
@@ -758,6 +764,33 @@ rut_material_set_pointalism_cell_size (RutObject *obj,
   rut_property_dirty (&ctx->property_ctx,
                  &material->properties[RUT_MATERIAL_PROP_POINTALISM_CELL_SIZE]);
   rut_material_reset_video_texture_renderer (material, ctx);
+}
+
+CoglBool
+rut_material_get_pointalism_lighter (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_lighter;
+}
+
+void
+rut_material_set_pointalism_lighter (RutObject *obj,
+                                     CoglBool lighter)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (lighter == material->pointalism_lighter)
+    return;
+
+  material->pointalism_lighter = lighter;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                 &material->properties[RUT_MATERIAL_PROP_POINTALISM_LIGHTER]);
 }
 
 void

@@ -55,9 +55,6 @@ void
 rig_dirty_entity_pipelines (RutEntity *entity);
 
 void
-rig_dirty_video_pipelines (RutEntity *entity);
-
-void
 rig_renderer_init (RigEngine *engine);
 
 void

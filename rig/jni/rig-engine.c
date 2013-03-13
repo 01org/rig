@@ -660,10 +660,7 @@ asset_input_cb (RutInputRegion *region,
                 if (material)
                   {
                     if (type == RUT_ASSET_TYPE_TEXTURE)
-                      {
-                        rut_material_set_texture_asset (material, asset);
-                        g_warning ("texture");
-                      }
+                      rut_material_set_texture_asset (material, asset);
                     else if (type == RUT_ASSET_TYPE_NORMAL_MAP)
                       rut_material_set_normal_map_asset (material, asset);
                     else if (type == RUT_ASSET_TYPE_ALPHA_MASK)
