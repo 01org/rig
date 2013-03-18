@@ -27,7 +27,6 @@ typedef enum _RigPass
   RIG_PASS_COLOR_BLENDED,
   RIG_PASS_SHADOW,
   RIG_PASS_DOF_DEPTH,
-  RIG_PASS_VIDEO
 } RigPass;
 
 typedef struct _RigPaintContext

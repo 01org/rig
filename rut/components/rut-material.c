@@ -624,6 +624,7 @@ rut_material_set_pointalism_on (RutObject *obj,
   ctx = rut_entity_get_context (entity);
   rut_property_dirty (&ctx->property_ctx,
                         &material->properties[RUT_MATERIAL_PROP_POINTALISM_ON]);
+  rig_dirty_entity_pipelines (entity);
 }
 
 float
@@ -827,6 +828,32 @@ rut_material_flush_uniforms (RutMaterial *material,
   location = cogl_pipeline_get_uniform_location (pipeline,
                                                  "material_alpha_threshold");
   cogl_pipeline_set_uniform_1f (pipeline, location, material->alpha_mask_threshold);
+
+  if (material->pointalism_on && material->video_texture_asset)
+    {
+      if (material->pointalism_on)
+        {
+          location = cogl_pipeline_get_uniform_location (pipeline,"scale_factor");
+          cogl_pipeline_set_uniform_1f (pipeline, location,
+                                        material->pointalism_scale);
+          location = cogl_pipeline_get_uniform_location (pipeline, "z_trans");
+          cogl_pipeline_set_uniform_1f (pipeline, location,
+                                        material->pointalism_z);
+
+          if (material->pointalism_lighter)
+            {
+              location = cogl_pipeline_get_uniform_location (pipeline,
+                                                             "anti_scale");
+              cogl_pipeline_set_uniform_1i (pipeline, location, 1);
+            }
+          else
+            {
+              location = cogl_pipeline_get_uniform_location (pipeline,
+                                                             "anti_scale");
+              cogl_pipeline_set_uniform_1i (pipeline, location, 0);
+            }
+        }
+    }
 
   material->uniforms_flush_age = material->uniforms_age;
 }

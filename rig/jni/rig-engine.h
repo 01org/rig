@@ -228,6 +228,9 @@ struct _RigEngine
   CoglSnippet *material_lighting_snippet;
   CoglSnippet *simple_lighting_snippet;
   CoglSnippet *shadow_mapping_fragment_snippet;
+  CoglSnippet *pointalism_vertex_snippet;
+  CoglSnippet *pointalism_fragment_opaque_snippet;
+  CoglSnippet *pointalism_fragment_halo_snippet;
 
   GHashTable *assets_registry;
 
