@@ -75,6 +75,75 @@ static RutPropertySpec _rut_material_prop_specs[] = {
     .validation = { .float_range = { 0, 1 }},
     .animatable = TRUE
   },
+  {
+    .name = "pointalism-on",
+    .nick = "Pointalism",
+    .type = RUT_PROPERTY_TYPE_BOOLEAN,
+    .getter.boolean_type = rut_material_get_pointalism_on,
+    .setter.boolean_type = rut_material_set_pointalism_on,
+    .flags = RUT_PROPERTY_FLAG_READWRITE,
+    .animatable = TRUE
+  },
+  {
+    .name = "pointalism-scale",
+    .nick = "Pointalism Scale Factor",
+    .type = RUT_PROPERTY_TYPE_FLOAT,
+    .getter.float_type = rut_material_get_pointalism_scale,
+    .setter.float_type = rut_material_set_pointalism_scale,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .validation = { .float_range = { 0, 100 }},
+  },
+  {
+    .name = "pointalism-z",
+    .nick = "Pointalism Z Factor",
+    .type = RUT_PROPERTY_TYPE_FLOAT,
+    .getter.float_type = rut_material_get_pointalism_z,
+    .setter.float_type = rut_material_set_pointalism_z,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .validation = { .float_range = { 0, 100 }},
+  },
+  {
+    .name = "pointalism-cols",
+    .nick = "Pointalism Columns",
+    .type = RUT_PROPERTY_TYPE_INTEGER,
+    .getter.integer_type = rut_material_get_pointalism_columns,
+    .setter.integer_type = rut_material_set_pointalism_columns,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .default_value = { .integer = 50 },
+    .validation = { .int_range = { .min = 0, .max = INT_MAX}}
+  },
+  {
+    .name = "pointalism-rows",
+    .nick = "Pointalism Rows",
+    .type = RUT_PROPERTY_TYPE_INTEGER,
+    .getter.integer_type = rut_material_get_pointalism_rows,
+    .setter.integer_type = rut_material_set_pointalism_rows,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .default_value = { .integer = 37 },
+    .validation = { .int_range = { .min = 0, .max = INT_MAX}}
+  },
+  {
+    .name = "pointalism-cell-size",
+    .nick = "Pointalism Cell Size",
+    .type = RUT_PROPERTY_TYPE_FLOAT,
+    .getter.float_type = rut_material_get_pointalism_cell_size,
+    .setter.float_type = rut_material_set_pointalism_cell_size,
+    .flags = RUT_PROPERTY_FLAG_READWRITE |
+      RUT_PROPERTY_FLAG_VALIDATE,
+    .validation = { .float_range = { 0, 100 }},
+  },
+  {
+    .name = "pointalism-lighter",
+    .nick = "Pointalism Lighter",
+    .type = RUT_PROPERTY_TYPE_BOOLEAN,
+    .getter.boolean_type = rut_material_get_pointalism_lighter,
+    .setter.boolean_type = rut_material_set_pointalism_lighter,
+    .flags = RUT_PROPERTY_FLAG_READWRITE,
+  },
   { 0 }
 };
 
@@ -149,11 +218,21 @@ rut_material_new (RutContext *ctx,
 
   material->component.type = RUT_COMPONENT_TYPE_MATERIAL;
 
+  material->ctx = ctx;
+
   cogl_color_init_from_4f (&material->ambient, 0.23, 0.23, 0.23, 1);
   cogl_color_init_from_4f (&material->diffuse, 0.75, 0.75, 0.75, 1);
   cogl_color_init_from_4f (&material->specular, 0.64, 0.64, 0.64, 1);
 
   material->shininess = 100;
+  material->pointalism_on = FALSE;
+  material->pointalism_lighter = TRUE;
+  material->pointalism_cell_size = 10;
+  material->pointalism_columns = 50;
+  material->pointalism_rows = 37;
+  material->pointalism_scale = 1;
+  material->pointalism_z = 1;
+  material->sink = NULL;
 
   rut_simple_introspectable_init (material,
                                   _rut_material_prop_specs,
@@ -164,6 +243,9 @@ rut_material_new (RutContext *ctx,
   material->texture_asset = NULL;
   material->normal_map_asset = NULL;
   material->alpha_mask_asset = NULL;
+  material->video_texture_asset = NULL;
+  material->video_renderer = NULL;
+  material->circle_shape = NULL;
 
   if (asset)
     {
@@ -177,6 +259,15 @@ rut_material_new (RutContext *ctx,
           break;
         case RUT_ASSET_TYPE_ALPHA_MASK:
           material->alpha_mask_asset = rut_refable_ref (asset);
+          break;
+        case RUT_ASSET_TYPE_VIDEO:
+          material->video_texture_asset = rut_refable_ref (asset);
+          material->video_renderer = rut_video_renderer_new (ctx->cogl_context,
+                                                             material->pointalism_columns,
+                                                             material->pointalism_rows,
+                                                             material->pointalism_cell_size);
+          material->circle_shape = ctx->circle_texture;
+          rut_material_video_play (material, ctx);
           break;
         default:
           g_warn_if_reached ();
@@ -194,6 +285,14 @@ rut_material_set_texture_asset (RutMaterial *material,
     {
       rut_refable_unref (material->texture_asset);
       material->texture_asset = NULL;
+    }
+
+  if (material->video_texture_asset)
+    {
+      rut_refable_unref (material->video_texture_asset);
+      material->video_texture_asset = NULL;
+      rut_material_video_stop (material);
+      material->pointalism_on = FALSE;
     }
 
   if (texture_asset)
@@ -216,6 +315,14 @@ rut_material_set_normal_map_asset (RutMaterial *material,
       material->normal_map_asset = NULL;
     }
 
+  if (material->video_texture_asset)
+    {
+      rut_refable_unref (material->video_texture_asset);
+      material->video_texture_asset = NULL;
+      rut_material_video_stop (material);
+      material->pointalism_on = FALSE;
+    }
+
   if (normal_map_asset)
     material->normal_map_asset = rut_refable_ref (normal_map_asset);
 }
@@ -236,6 +343,14 @@ rut_material_set_alpha_mask_asset (RutMaterial *material,
       material->alpha_mask_asset = NULL;
     }
 
+  if (material->video_texture_asset)
+    {
+      rut_refable_unref (material->video_texture_asset);
+      material->video_texture_asset = NULL;
+      rut_material_video_stop (material);
+      material->pointalism_on = FALSE;
+    }
+
   if (alpha_mask_asset)
     material->alpha_mask_asset = rut_refable_ref (alpha_mask_asset);
 }
@@ -244,6 +359,145 @@ RutAsset *
 rut_material_get_alpha_mask_asset (RutMaterial *material)
 {
   return material->alpha_mask_asset;
+}
+
+void
+rut_material_set_video_texture_asset (RutMaterial *material,
+                                      RutAsset *asset)
+{
+  if (material->texture_asset)
+    {
+      rut_refable_unref (material->texture_asset);
+      material->texture_asset = NULL;
+    }
+
+  if (material->video_texture_asset)
+    {
+      rut_material_video_stop (material);
+      rut_refable_unref (material->video_texture_asset);
+      material->video_texture_asset = NULL;
+    }
+
+  if (material->normal_map_asset)
+    {
+      rut_refable_unref (material->normal_map_asset);
+      material->normal_map_asset = NULL;
+    }
+
+  if (material->alpha_mask_asset)
+    {
+      rut_refable_unref (material->alpha_mask_asset);
+      material->alpha_mask_asset = NULL;
+    }
+
+  if (material->video_renderer)
+    {
+      cogl_object_unref (material->circle_shape);
+      cogl_object_unref (material->video_renderer->attributes[0]);
+      cogl_object_unref (material->video_renderer->attributes[1]);
+      cogl_object_unref (material->video_renderer->indices);
+      g_free (material->video_renderer->grid);
+      g_free (material->video_renderer);
+    }
+
+  if (asset)
+    {
+      material->video_texture_asset = rut_refable_ref (asset);
+      material->video_renderer =
+        rut_video_renderer_new (material->ctx->cogl_context,
+                                material->pointalism_columns,
+                                material->pointalism_rows,
+                                material->pointalism_cell_size);
+      material->circle_shape = material->ctx->circle_texture;
+      rut_material_video_play (material, material->ctx);
+    }
+}
+
+void
+rut_material_reset_video_texture_renderer (RutMaterial *material,
+                                           RutContext *ctx)
+{
+  if (material->video_renderer)
+    {
+      cogl_object_unref (material->video_renderer->attributes[0]);
+      cogl_object_unref (material->video_renderer->attributes[1]);
+      cogl_object_unref (material->video_renderer->indices);
+      g_free (material->video_renderer->grid);
+      g_free (material->video_renderer);
+      material->video_renderer = NULL;
+    }
+
+  material->video_renderer = rut_video_renderer_new (ctx->cogl_context,
+                                                     material->pointalism_columns,
+                                                     material->pointalism_rows,
+                                                     material->pointalism_cell_size);
+}
+
+RutAsset *
+rut_material_get_video_texture_asset (RutMaterial *material)
+{
+  return material->video_texture_asset;
+}
+
+CoglBool
+loop_video (GstBus *bus,
+            GstMessage *msg,
+            void *data)
+{
+  RutMaterial *material = (RutMaterial*) data;
+  switch (GST_MESSAGE_TYPE(msg))
+    {
+      case GST_MESSAGE_EOS:
+        gst_element_seek (material->pipeline, 1.0, GST_FORMAT_TIME,
+                          GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, 0,
+                          GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
+        break;
+      default:
+        break;
+    }
+  return TRUE;
+}
+
+void
+rut_material_video_play (RutMaterial *material,
+                         RutContext *ctx)
+{
+  GstBus* bus;
+  char *uri;
+  char *filename = g_build_filename (ctx->assets_location,
+                                     rut_asset_get_path (material->video_texture_asset),
+                                     NULL);
+
+  if (material->sink)
+    gst_element_set_state (material->pipeline, GST_STATE_NULL);
+
+  material->sink = cogl_gst_video_sink_new (ctx->cogl_context);
+  material->pipeline = gst_pipeline_new ("renderer");
+  material->bin = gst_element_factory_make ("playbin", NULL);
+  uri = g_strconcat ("file://", filename, NULL);
+  g_object_set (G_OBJECT (material->bin), "video-sink",
+                GST_ELEMENT (material->sink), NULL);
+  g_object_set (G_OBJECT (material->bin), "uri", uri, NULL);
+  gst_bin_add (GST_BIN (material->pipeline), material->bin);
+
+  bus = gst_pipeline_get_bus (GST_PIPELINE (material->pipeline));
+
+  gst_element_set_state (material->pipeline, GST_STATE_PLAYING);
+  gst_bus_add_watch (bus, loop_video, material);
+
+  g_free (uri);
+  g_free (filename);
+  gst_object_unref (bus);
+}
+
+void
+rut_material_video_stop (RutMaterial *material)
+{
+  if (material->sink)
+    {
+      gst_element_set_state (material->pipeline, GST_STATE_NULL);
+      gst_object_unref (material->sink);
+    }
 }
 
 void
@@ -345,6 +599,201 @@ rut_material_set_alpha_mask_threshold (RutObject *obj,
                       &material->properties[RUT_MATERIAL_PROP_ALPHA_MASK_THRESHOLD]);
 }
 
+CoglBool
+rut_material_get_pointalism_on (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_on;
+}
+
+void
+rut_material_set_pointalism_on (RutObject *obj,
+                                CoglBool pointalism_on)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (pointalism_on == material->pointalism_on)
+    return;
+
+  material->pointalism_on = pointalism_on;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                        &material->properties[RUT_MATERIAL_PROP_POINTALISM_ON]);
+  rig_dirty_entity_pipelines (entity);
+}
+
+float
+rut_material_get_pointalism_scale (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_scale;
+}
+
+void
+rut_material_set_pointalism_scale (RutObject *obj,
+                                   float scale)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (scale == material->pointalism_scale)
+    return;
+
+  material->pointalism_scale = scale;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                     &material->properties[RUT_MATERIAL_PROP_POINTALISM_SCALE]);
+}
+
+float
+rut_material_get_pointalism_z (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_z;
+}
+
+
+
+void
+rut_material_set_pointalism_z (RutObject *obj,
+                               float z)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (z == material->pointalism_z)
+    return;
+
+  material->pointalism_z = z;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                     &material->properties[RUT_MATERIAL_PROP_POINTALISM_Z]);
+}
+
+void
+rut_material_set_pointalism_columns (RutObject *obj,
+                                     int cols)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (material->pointalism_columns != cols)
+    {
+      material->pointalism_columns = cols;
+
+      entity = material->component.entity;
+      ctx = rut_entity_get_context (entity);
+      rut_property_dirty (&ctx->property_ctx,
+                     &material->properties[RUT_MATERIAL_PROP_POINTALISM_COLS]);
+      rut_material_reset_video_texture_renderer (material, ctx);
+    }
+}
+
+int
+rut_material_get_pointalism_columns (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_columns;
+}
+
+int
+rut_material_get_pointalism_rows (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_rows;
+}
+
+void
+rut_material_set_pointalism_rows (RutObject *obj,
+                                  int rows)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (rows == material->pointalism_rows)
+    return;
+
+  material->pointalism_rows = rows;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                      &material->properties[RUT_MATERIAL_PROP_POINTALISM_ROWS]);
+  rut_material_reset_video_texture_renderer (material, ctx);
+}
+
+float
+rut_material_get_pointalism_cell_size (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_cell_size;
+}
+
+void
+rut_material_set_pointalism_cell_size (RutObject *obj,
+                                       float size)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (size == material->pointalism_cell_size)
+    return;
+
+  material->pointalism_cell_size = size;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                 &material->properties[RUT_MATERIAL_PROP_POINTALISM_CELL_SIZE]);
+  rut_material_reset_video_texture_renderer (material, ctx);
+}
+
+CoglBool
+rut_material_get_pointalism_lighter (RutObject *obj)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+
+  return material->pointalism_lighter;
+}
+
+void
+rut_material_set_pointalism_lighter (RutObject *obj,
+                                     CoglBool lighter)
+{
+  RutMaterial *material = RUT_MATERIAL (obj);
+  RutEntity *entity;
+  RutContext *ctx;
+
+  if (lighter == material->pointalism_lighter)
+    return;
+
+  material->pointalism_lighter = lighter;
+
+  entity = material->component.entity;
+  ctx = rut_entity_get_context (entity);
+  rut_property_dirty (&ctx->property_ctx,
+                 &material->properties[RUT_MATERIAL_PROP_POINTALISM_LIGHTER]);
+}
+
 void
 rut_material_flush_uniforms (RutMaterial *material,
                              CoglPipeline *pipeline)
@@ -379,6 +828,32 @@ rut_material_flush_uniforms (RutMaterial *material,
   location = cogl_pipeline_get_uniform_location (pipeline,
                                                  "material_alpha_threshold");
   cogl_pipeline_set_uniform_1f (pipeline, location, material->alpha_mask_threshold);
+
+  if (material->pointalism_on && material->video_texture_asset)
+    {
+      if (material->pointalism_on)
+        {
+          location = cogl_pipeline_get_uniform_location (pipeline,"scale_factor");
+          cogl_pipeline_set_uniform_1f (pipeline, location,
+                                        material->pointalism_scale);
+          location = cogl_pipeline_get_uniform_location (pipeline, "z_trans");
+          cogl_pipeline_set_uniform_1f (pipeline, location,
+                                        material->pointalism_z);
+
+          if (material->pointalism_lighter)
+            {
+              location = cogl_pipeline_get_uniform_location (pipeline,
+                                                             "anti_scale");
+              cogl_pipeline_set_uniform_1i (pipeline, location, 1);
+            }
+          else
+            {
+              location = cogl_pipeline_get_uniform_location (pipeline,
+                                                             "anti_scale");
+              cogl_pipeline_set_uniform_1i (pipeline, location, 0);
+            }
+        }
+    }
 
   material->uniforms_flush_age = material->uniforms_age;
 }

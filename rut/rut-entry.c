@@ -49,6 +49,9 @@ struct _RutEntry
   CoglPipeline *border_pipeline;
   CoglPipeline *border_circle_pipeline;
 
+  RutIcon *icon;
+  RutTransform *icon_transform;
+
   RutText *text;
   RutTransform *text_transform;
 
@@ -82,11 +85,27 @@ static RutPropertySpec _rut_entry_prop_specs[] = {
 };
 
 static void
+remove_icon (RutEntry *entry)
+{
+  if (!entry->icon)
+    return;
+
+  /* NB: we don't keep any addition references on the icon and icon
+   * transform other those for adding them to the scene graph... */
+
+  rut_graphable_remove_child (entry->icon_transform);
+  entry->icon = NULL;
+  entry->icon_transform = NULL;
+}
+
+static void
 _rut_entry_free (void *object)
 {
   RutEntry *entry = object;
 
   rut_refable_unref (entry->ctx);
+
+  remove_icon (entry);
 
   if (entry->pipeline)
     cogl_object_unref (entry->pipeline);
@@ -157,6 +176,10 @@ _rut_entry_paint (RutObject *object,
   float height = entry->height;
   float half_height = height / 2.0;
 
+  if (entry->icon)
+    {
+
+    }
 
 #if 0
   if (!entry->prim)
@@ -206,29 +229,56 @@ _rut_entry_paint (RutObject *object,
 #endif
 }
 
-void
-rut_entry_set_size (RutEntry *entry,
-                    float width,
-                    float height)
+static void
+allocate (RutEntry *entry)
 {
+  float width = entry->width;
+  float height = entry->height;
+  float icon_width = 0;
+  float icon_height = 0;
+
   if (entry->prim)
     {
       cogl_object_unref (entry->prim);
       entry->prim = NULL;
     }
 
+  if (entry->icon)
+    {
+      rut_sizable_get_size (entry->icon, &icon_width, &icon_height);
+
+      rut_transform_init_identity (entry->icon_transform);
+      rut_transform_translate (entry->icon_transform,
+                               (int) (height / 2.0f),
+                               0.0f,
+                               0.0f);
+    }
+
   rut_transform_init_identity (entry->text_transform);
   rut_transform_translate (entry->text_transform,
-                           (int) (height / 2.0f),
+                           (int) (height / 2.0f) + icon_width,
                            0.0f,
                            0.0f);
 
   rut_sizable_set_size (entry->text,
                         width - height,
                         height);
+}
+
+void
+rut_entry_set_size (RutObject *object,
+                    float width,
+                    float height)
+{
+  RutEntry *entry = object;
+
+  if (entry->width == width && entry->height == height)
+    return;
 
   entry->width = width;
   entry->height = height;
+
+  allocate (entry);
 
   rut_property_dirty (&entry->ctx->property_ctx,
                       &entry->properties[RUT_ENTRY_PROP_WIDTH]);
@@ -237,11 +287,14 @@ rut_entry_set_size (RutEntry *entry,
 }
 
 void
-rut_entry_get_size (RutEntry *entry,
+rut_entry_get_size (RutObject *object,
                     float *width,
                     float *height)
 {
-  rut_sizable_get_size (entry->text, width, height);
+  RutEntry *entry = object;
+
+  *width = entry->width;
+  *height = entry->height;
 }
 
 static void
@@ -268,6 +321,14 @@ _rut_entry_get_preferred_width (RutObject *object,
   min_width += natural_height;
   natural_width += natural_height;
 
+  if (entry->icon)
+    {
+      float width, height;
+      rut_sizable_get_size (entry->icon, &width, &height);
+      min_width += width;
+      natural_width += width;
+    }
+
   if (min_width_p)
     *min_width_p = min_width;
   if (natural_width_p)
@@ -281,11 +342,22 @@ _rut_entry_get_preferred_height (RutObject *object,
                                  float *natural_height_p)
 {
   RutEntry *entry = RUT_ENTRY (object);
+
   /* We can't pass on the for_width parameter because the width that
    * the text widget will actually get depends on the height that it
    * returns */
   rut_sizable_get_preferred_height (entry->text, -1,
                                     min_height_p, natural_height_p);
+
+  if (entry->icon)
+    {
+      float width, height;
+      rut_sizable_get_size (entry->icon, &width, &height);
+      if (min_height_p)
+        *min_height_p = MAX (*min_height_p, height);
+      if (natural_height_p)
+        *natural_height_p = MAX (*natural_height_p, height);
+    }
 }
 
 RutPaintableVTable _rut_entry_paintable_vtable = {
@@ -419,4 +491,32 @@ RutText *
 rut_entry_get_text (RutEntry *entry)
 {
   return entry->text;
+}
+
+void
+rut_entry_set_icon (RutEntry *entry,
+                    RutIcon *icon)
+{
+  if (entry->icon == icon)
+    return;
+
+  remove_icon (entry);
+
+  if (icon)
+    {
+      /* XXX: note we don't keep any additional reference on the
+       * icon and icon transform other than those for adding
+       * them to the scene graph... */
+
+      entry->icon_transform = rut_transform_new (entry->ctx);
+      rut_graphable_add_child (entry, entry->icon_transform);
+      rut_refable_unref (entry->icon_transform);
+
+      rut_graphable_add_child (entry->icon_transform, icon);
+      entry->icon = icon;
+
+      allocate (entry);
+    }
+
+  rut_shell_queue_redraw (entry->ctx->shell);
 }
