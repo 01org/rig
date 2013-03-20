@@ -269,7 +269,7 @@ rut_thumbnail_generator_seek (GstBus *bus,
           GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT, seek);
 
       gst_element_get_state (generator->bin, NULL, 0,
-                              0.2 * GST_SECOND);
+                              0.5 * GST_SECOND);
       generator->seek_done = TRUE;
     }
 
