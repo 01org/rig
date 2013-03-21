@@ -896,20 +896,9 @@ get_entity_color_pipeline (RigEngine *engine,
            * previous layers so we set its combine mode to "REPLACE" so it
            * will be skipped past and we can sample its texture manually */
 
-          if (!is_video)
-            {
-              cogl_pipeline_set_layer_combine (pipeline, 4,
-                                               "RGBA=REPLACE(PREVIOUS)", NULL);
-              cogl_pipeline_set_layer_texture (pipeline, 4, alpha_mask);
-            }
-          else
-            {
-              cogl_pipeline_set_layer_combine (pipeline, free_layer + 4,
-                                               "RGBA=REPLACE(PREVIOUS)", NULL);
-              cogl_pipeline_set_layer_texture (pipeline, free_layer + 4,
-                                               alpha_mask);
-            }
-
+          cogl_pipeline_set_layer_combine (pipeline, 4,
+                                           "RGBA=REPLACE(PREVIOUS)", NULL);
+          cogl_pipeline_set_layer_texture (pipeline, 4, alpha_mask);
           cogl_pipeline_add_snippet (pipeline, engine->alpha_mask_snippet);
         }
 
@@ -919,19 +908,9 @@ get_entity_color_pipeline (RigEngine *engine,
            * previous layers so we set its combine mode to "REPLACE" so it
            * will be skipped past and we can sample its texture manually */
 
-          if (!is_video)
-            {
-              cogl_pipeline_set_layer_combine (pipeline, 5,
-                                               "RGBA=REPLACE(PREVIOUS)", NULL);
-              cogl_pipeline_set_layer_texture (pipeline, 5, normal_map);
-            }
-          else
-            {
-              cogl_pipeline_set_layer_combine (pipeline, free_layer + 5,
-                                               "RGBA=REPLACE(PREVIOUS)", NULL);
-              cogl_pipeline_set_layer_texture (pipeline, free_layer + 5,
-                                               normal_map);
-            }
+          cogl_pipeline_set_layer_combine (pipeline, 5,
+                                          "RGBA=REPLACE(PREVIOUS)", NULL);
+          cogl_pipeline_set_layer_texture (pipeline, 5, normal_map);
 
           snippet = engine->normal_map_fragment_snippet;
         }

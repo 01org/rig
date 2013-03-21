@@ -315,14 +315,6 @@ rut_material_set_normal_map_asset (RutMaterial *material,
       material->normal_map_asset = NULL;
     }
 
-  if (material->video_texture_asset)
-    {
-      rut_refable_unref (material->video_texture_asset);
-      material->video_texture_asset = NULL;
-      rut_material_video_stop (material);
-      material->pointalism_on = FALSE;
-    }
-
   if (normal_map_asset)
     material->normal_map_asset = rut_refable_ref (normal_map_asset);
 }
@@ -341,14 +333,6 @@ rut_material_set_alpha_mask_asset (RutMaterial *material,
     {
       rut_refable_unref (material->alpha_mask_asset);
       material->alpha_mask_asset = NULL;
-    }
-
-  if (material->video_texture_asset)
-    {
-      rut_refable_unref (material->video_texture_asset);
-      material->video_texture_asset = NULL;
-      rut_material_video_stop (material);
-      material->pointalism_on = FALSE;
     }
 
   if (alpha_mask_asset)
@@ -376,18 +360,6 @@ rut_material_set_video_texture_asset (RutMaterial *material,
       rut_material_video_stop (material);
       rut_refable_unref (material->video_texture_asset);
       material->video_texture_asset = NULL;
-    }
-
-  if (material->normal_map_asset)
-    {
-      rut_refable_unref (material->normal_map_asset);
-      material->normal_map_asset = NULL;
-    }
-
-  if (material->alpha_mask_asset)
-    {
-      rut_refable_unref (material->alpha_mask_asset);
-      material->alpha_mask_asset = NULL;
     }
 
   if (material->video_renderer)
