@@ -22,7 +22,6 @@
 
 #include "rut-entity.h"
 #include "rut-asset.h"
-#include "rut-video-renderer.h"
 
 typedef struct _RutMaterial RutMaterial;
 #define RUT_MATERIAL(p) ((RutMaterial *)(p))
@@ -34,13 +33,6 @@ enum {
   RUT_MATERIAL_PROP_SPECULAR,
   RUT_MATERIAL_PROP_SHININESS,
   RUT_MATERIAL_PROP_ALPHA_MASK_THRESHOLD,
-  RUT_MATERIAL_PROP_POINTALISM_ON,
-  RUT_MATERIAL_PROP_POINTALISM_SCALE,
-  RUT_MATERIAL_PROP_POINTALISM_Z,
-  RUT_MATERIAL_PROP_POINTALISM_COLS,
-  RUT_MATERIAL_PROP_POINTALISM_ROWS,
-  RUT_MATERIAL_PROP_POINTALISM_CELL_SIZE,
-  RUT_MATERIAL_PROP_POINTALISM_LIGHTER,
   RUT_MATERIAL_N_PROPS
 };
 
@@ -61,20 +53,12 @@ struct _RutMaterial
   CoglGstVideoSink *sink;
   GstElement *bin, *pipeline;
 
-  RutVideoRenderer *video_renderer;
   CoglTexture *circle_shape;
 
   CoglColor ambient;
   CoglColor diffuse;
   CoglColor specular;
   float shininess;
-  CoglBool pointalism_on;
-  CoglBool pointalism_lighter;
-  int pointalism_columns;
-  int pointalism_rows;
-  float pointalism_cell_size;
-  float pointalism_scale;
-  float pointalism_z;
 
   float alpha_mask_threshold;
 
@@ -176,19 +160,19 @@ void
 rut_material_set_pointalism_z (RutObject *obj,
                                float z);
 
-int
+float
 rut_material_get_pointalism_columns (RutObject *obj);
 
 void
 rut_material_set_pointalism_columns (RutObject *obj,
-                                     int cols);
+                                     float cols);
 
-int
+float
 rut_material_get_pointalism_rows (RutObject *material);
 
 void
 rut_material_set_pointalism_rows (RutObject *material,
-                                  int rows);
+                                  float rows);
 
 float
 rut_material_get_pointalism_cell_size (RutObject *material);

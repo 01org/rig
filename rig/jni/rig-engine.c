@@ -722,6 +722,15 @@ asset_input_cb (RutInputRegion *region,
                         rut_entity_remove_component (entity, geom);
                         diamond = rut_diamond_new (engine->ctx, size, width, height);
                       }
+                    else if (rut_object_get_type (geom) == &rut_pointalism_grid_type)
+                      {
+                        RutPointalismGrid *grid = geom;
+
+                        rut_entity_remove_component (entity, geom);
+                        grid = rut_pointalism_grid_new (engine->ctx, 0,
+                                                        width, height, 20, 20);
+                        rut_entity_add_component (entity, grid);
+                      }
                   }
 
                 status = RUT_INPUT_EVENT_STATUS_HANDLED;
@@ -866,6 +875,43 @@ asset_input_cb (RutInputRegion *region,
 
                   diamond = rut_diamond_new (engine->ctx, 200, tex_width, tex_height);
                   rut_entity_add_component (entity, diamond);
+
+                  status = RUT_INPUT_EVENT_STATUS_HANDLED;
+                }
+
+              else if (asset == engine->pointalism_grid_builtin_asset)
+                {
+                  RutPointalismGrid *grid;
+                  int tex_width = 200, tex_height = 200;
+
+                  geom = rut_entity_get_component (entity,
+                                                   RUT_COMPONENT_TYPE_GEOMETRY);
+
+                  if (geom && rut_object_get_type (geom) == &rut_pointalism_grid_type)
+                    {
+                      status = RUT_INPUT_EVENT_STATUS_HANDLED;
+                      break;
+                    }
+                  else if (geom)
+                    rut_entity_remove_component (entity, geom);
+
+                  material =
+                    rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
+
+                  if (material)
+                    {
+                      RutAsset *texture_asset =
+                        rut_material_get_texture_asset (material);
+                      if (texture_asset)
+                        {
+                          CoglTexture *texture = rut_asset_get_texture (texture_asset);
+                          tex_width = cogl_texture_get_width (texture);
+                          tex_height = cogl_texture_get_height (texture);
+                        }
+                    }
+
+                  grid = rut_pointalism_grid_new (engine->ctx, 200, tex_width, tex_height, 20, 20);
+                  rut_entity_add_component (entity, grid);
 
                   status = RUT_INPUT_EVENT_STATUS_HANDLED;
                 }
@@ -1327,6 +1373,14 @@ load_builtin_assets (RigEngine *engine)
   rut_asset_add_inferred_tag (engine->text_builtin_asset, "builtin");
   rut_asset_add_inferred_tag (engine->text_builtin_asset, "geom");
   rut_asset_add_inferred_tag (engine->text_builtin_asset, "geometry");
+
+  engine->pointalism_grid_builtin_asset = rut_asset_new_builtin (engine->ctx,
+                                                                 "pointalism.png");
+  rut_asset_add_inferred_tag (engine->pointalism_grid_builtin_asset, "grid");
+  rut_asset_add_inferred_tag (engine->pointalism_grid_builtin_asset, "builtin");
+  rut_asset_add_inferred_tag (engine->pointalism_grid_builtin_asset, "geom");
+  rut_asset_add_inferred_tag (engine->pointalism_grid_builtin_asset,
+                              "geometry");
 }
 
 static void
@@ -1335,6 +1389,7 @@ free_builtin_assets (RigEngine *engine)
   rut_refable_unref (engine->diamond_builtin_asset);
   rut_refable_unref (engine->circle_builtin_asset);
   rut_refable_unref (engine->text_builtin_asset);
+  rut_refable_unref (engine->pointalism_grid_builtin_asset);
 }
 
 static void
@@ -2913,6 +2968,10 @@ rig_load_asset_list (RigEngine *engine)
   rut_refable_ref (engine->text_builtin_asset);
   engine->assets = g_list_prepend (engine->assets,
                                    engine->text_builtin_asset);
+
+  rut_refable_ref (engine->pointalism_grid_builtin_asset);
+  engine->assets = g_list_prepend (engine->assets,
+                                   engine->pointalism_grid_builtin_asset);
 
   g_object_unref (assets_dir);
 

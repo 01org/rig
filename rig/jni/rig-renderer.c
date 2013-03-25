@@ -159,15 +159,22 @@ rig_renderer_init (RigEngine *engine)
                       "    material_alpha_threshold)\n"
                       "  discard;\n");
 
+  engine->position_cache_vertex_snippet =
+  cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX,
+                    "varying vec4 cache_position;\n",
+                    "cache_position = cogl_position_in;\n"
+                   );
+
   engine->lighting_vertex_snippet =
     cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX,
                       /* definitions */
                       "uniform mat3 normal_matrix;\n"
-                      "varying vec3 normal, eye_direction;\n",
+                      "varying vec3 normal, eye_direction;\n"
+                      "varying vec4 position;\n",
                       /* post */
                       "normal = normalize(normal_matrix * cogl_normal_in);\n"
                       "eye_direction = -vec3(cogl_modelview_matrix *\n"
-                      "                      cogl_position_in);\n"
+                      "                      cache_position);\n"
                       );
 
   engine->normal_map_vertex_snippet =
@@ -205,7 +212,7 @@ rig_renderer_init (RigEngine *engine)
 
                       /* post */
                       "shadow_coords = light_shadow_matrix *\n"
-                      "                cogl_position_in;\n");
+                      "                cache_position;\n");
 
   engine->pointalism_vertex_snippet =
     cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX,
@@ -216,7 +223,7 @@ rig_renderer_init (RigEngine *engine)
     "uniform int anti_scale;\n"
     "varying vec4 av_color;\n",
 
-    "vec4 pos = cogl_position_in;\n"
+    "vec4 pos = cache_position;\n"
     "float grey;\n"
 
     "av_color = cogl_gst_sample_video (vec2 (cell_st.x, cell_st.z));\n"
@@ -239,6 +246,7 @@ rig_renderer_init (RigEngine *engine)
     "}"
     "pos.x += cell_xy.x;\n"
     "pos.y += cell_xy.y;\n"
+    "cache_position = pos;\n"
     "cogl_position_out = cogl_modelview_projection_matrix * pos;\n");
 
   engine->blended_discard_snippet =
@@ -479,6 +487,7 @@ rig_renderer_fini (RigEngine *engine)
   cogl_object_unref (engine->pointalism_vertex_snippet);
   cogl_object_unref (engine->pointalism_halo_fragment_snippet);
   cogl_object_unref (engine->pointalism_opaque_fragment_snippet);
+  cogl_object_unref (engine->position_cache_vertex_snippet);
 }
 
 static CoglPipeline *
@@ -728,7 +737,8 @@ get_entity_color_pipeline (RigEngine *engine,
             {
               is_video = TRUE;
               free_layer = cogl_gst_video_sink_get_free_layer (material->sink);
-              if (material->pointalism_on)
+
+              if (rut_object_get_type (geometry) == &rut_pointalism_grid_type)
                 pointalism_on = TRUE;
             }
           else
@@ -769,12 +779,7 @@ get_entity_color_pipeline (RigEngine *engine,
       if (texture_asset)
         texture = rut_asset_get_texture (texture_asset);
       if (texture)
-        {
-          if (!is_video)
-            cogl_pipeline_set_layer_texture (pipeline, 1, texture);
-          else
-            cogl_pipeline_set_layer_texture (pipeline, free_layer + 1, texture);
-        }
+          cogl_pipeline_set_layer_texture (pipeline, 1, texture);
 
       if (normal_map_asset)
         normal_map = rut_asset_get_texture (normal_map_asset);
@@ -813,6 +818,11 @@ get_entity_color_pipeline (RigEngine *engine,
   cogl_pipeline_set_depth_state (pipeline, &depth_state, NULL);
 
   /* Vertex shader setup for lighting */
+  cogl_pipeline_add_snippet (pipeline, engine->position_cache_vertex_snippet);
+
+  if (pointalism_on)
+    cogl_pipeline_add_snippet (pipeline, engine->pointalism_vertex_snippet);
+
   cogl_pipeline_add_snippet (pipeline, engine->lighting_vertex_snippet);
 
   if (normal_map)
@@ -821,8 +831,6 @@ get_entity_color_pipeline (RigEngine *engine,
   if (rut_entity_get_receive_shadow (entity))
     cogl_pipeline_add_snippet (pipeline, engine->shadow_mapping_vertex_snippet);
 
-  if (pointalism_on)
-    cogl_pipeline_add_snippet (pipeline, engine->pointalism_vertex_snippet);
 
   /* and fragment shader */
 
@@ -842,7 +850,7 @@ get_entity_color_pipeline (RigEngine *engine,
             rut_shape_get_shape_texture (RUT_SHAPE (geometry));
           if (!is_video)
             cogl_pipeline_set_layer_texture (pipeline, 0, shape_texture);
-          else if (!pointalism_on)
+          else
             {
               cogl_pipeline_set_layer_texture (pipeline, free_layer,
                                                shape_texture);
@@ -851,6 +859,12 @@ get_entity_color_pipeline (RigEngine *engine,
               location = cogl_pipeline_get_uniform_location (pipeline, "shape");
               cogl_pipeline_set_uniform_1i (pipeline, location, free_layer);
             }
+        }
+      else
+        {
+          if (is_video)
+            cogl_pipeline_add_snippet (pipeline,
+                                       engine->video_fragment_snippet);
         }
 
       rut_shape_add_reshaped_callback (RUT_SHAPE (geometry),
@@ -862,7 +876,7 @@ get_entity_color_pipeline (RigEngine *engine,
     {
       if (!is_video)
         rut_diamond_apply_mask (RUT_DIAMOND (geometry), pipeline);
-      else if (!pointalism_on)
+      else
         {
           cogl_pipeline_set_layer_texture (pipeline, free_layer,
                                            material->circle_shape);
@@ -872,8 +886,6 @@ get_entity_color_pipeline (RigEngine *engine,
           cogl_pipeline_set_uniform_1i (pipeline, location, free_layer);
         }
     }
-  else if (is_video && !pointalism_on)
-    cogl_pipeline_add_snippet (pipeline, engine->video_fragment_snippet);
 
   if (!pointalism_on)
     cogl_pipeline_add_snippet (pipeline,
@@ -1100,15 +1112,6 @@ rig_journal_flush (GArray *journal,
 
       material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
 
-      if (material)
-        {
-          if (material->video_texture_asset)
-            {
-              if (cogl_gst_video_sink_get_pipeline (material->sink) &&
-                  material->pointalism_on)
-                pointalism_on = TRUE;
-            }
-        }
 
       if ((paint_ctx->pass == RIG_PASS_DOF_DEPTH ||
           paint_ctx->pass == RIG_PASS_SHADOW))
@@ -1146,7 +1149,7 @@ rig_journal_flush (GArray *journal,
                                             normal_matrix);
         }
 
-      if (rut_object_is (geometry, RUT_INTERFACE_ID_PRIMABLE) && !pointalism_on)
+      if (rut_object_is (geometry, RUT_INTERFACE_ID_PRIMABLE))
         {
           primitive = rut_primable_get_primitive (geometry);
           cogl_framebuffer_set_modelview_matrix (fb, &entry->matrix);
@@ -1155,12 +1158,12 @@ rig_journal_flush (GArray *journal,
                                            primitive);
         }
       else if (rut_object_get_type (geometry) == &rut_text_type &&
-               paint_ctx->pass == RIG_PASS_COLOR_BLENDED && !pointalism_on)
+               paint_ctx->pass == RIG_PASS_COLOR_BLENDED)
         {
           cogl_framebuffer_set_modelview_matrix (fb, &entry->matrix);
           rut_paintable_paint (geometry, rut_paint_ctx);
         }
-      else if (pointalism_on)
+      /*else if (pointalism_on)
         {
           cogl_framebuffer_set_modelview_matrix (fb, &entry->matrix);
           cogl_framebuffer_draw_indexed_attributes (fb, pipeline,
@@ -1168,7 +1171,7 @@ rig_journal_flush (GArray *journal,
                                                     0, material->video_renderer->grid->num_polygons
                                                     * 3, material->video_renderer->indices,
                                                     material->video_renderer->attributes, 5);
-        }
+        }*/
 
       cogl_object_unref (pipeline);
 
