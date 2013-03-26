@@ -235,7 +235,8 @@ struct _RigEngine
   CoglSnippet *pointalism_vertex_snippet;
   CoglSnippet *pointalism_opaque_fragment_snippet;
   CoglSnippet *pointalism_halo_fragment_snippet;
-  CoglSnippet *position_cache_vertex_snippet;
+  CoglSnippet *position_cache_vertex_global;
+  CoglSnippet *position_cache_vertex_transform;
 
   GHashTable *assets_registry;
 
