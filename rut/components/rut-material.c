@@ -177,6 +177,7 @@ rut_material_new (RutContext *ctx,
         {
         case RUT_ASSET_TYPE_TEXTURE:
           material->texture_asset = rut_refable_ref (asset);
+          material->circle_shape = ctx->circle_texture;
           break;
         case RUT_ASSET_TYPE_NORMAL_MAP:
           material->normal_map_asset = rut_refable_ref (asset);
@@ -499,6 +500,13 @@ rut_material_flush_uniforms (RutMaterial *material,
 
       if (cogl_gst_video_sink_get_pipeline (material->sink) &&
           rut_object_get_type (geo) == &rut_pointalism_grid_type)
+        pointalism_on = TRUE;
+    }
+  else if (material->texture_asset)
+    {
+      geo = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_GEOMETRY);
+
+      if (rut_object_get_type (geo) == &rut_pointalism_grid_type)
         pointalism_on = TRUE;
     }
 

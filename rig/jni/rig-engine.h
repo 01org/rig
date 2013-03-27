@@ -233,6 +233,7 @@ struct _RigEngine
   CoglSnippet *video_shaped_fragment_snippet;
   CoglSnippet *video_diamond_fragment_snippet;
   CoglSnippet *pointalism_vertex_snippet;
+  CoglSnippet *pointalism_vertex_tex_snippet;
   CoglSnippet *pointalism_opaque_fragment_snippet;
   CoglSnippet *pointalism_halo_fragment_snippet;
   CoglSnippet *position_cache_vertex_global;

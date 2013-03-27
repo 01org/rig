@@ -256,6 +256,41 @@ rig_renderer_init (RigEngine *engine)
     "cache_position = pos;\n"
     "cogl_position_out = cogl_modelview_projection_matrix * cache_position;\n");
 
+  engine->pointalism_vertex_tex_snippet =
+  cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX_TRANSFORM,
+    "attribute vec2 cell_xy;\n"
+    "attribute vec4 cell_st;\n"
+    "uniform float scale_factor;\n"
+    "uniform float z_trans;\n"
+    "uniform int anti_scale;\n"
+    "varying vec4 av_color;\n",
+
+    "vec4 pos = cogl_position_in;\n"
+    "float grey;\n"
+
+    "av_color = texture2D (cogl_sampler1, vec2 (cell_st.x, cell_st.z));\n"
+    "av_color += texture2D (cogl_sampler1, vec2 (cell_st.y, cell_st.z));\n"
+    "av_color += texture2D (cogl_sampler1, vec2 (cell_st.y, cell_st.w));\n"
+    "av_color += texture2D (cogl_sampler1, vec2 (cell_st.x, cell_st.w));\n"
+    "av_color /= 4.0;\n"
+
+    "grey = av_color.r * 0.2126 + av_color.g * 0.7152 + av_color.b * 0.0722;\n"
+
+    "if (anti_scale == 1)\n"
+    "{"
+    "pos.xy *= scale_factor * grey;\n"
+    "pos.z += z_trans * grey;\n"
+    "}"
+    "else\n"
+    "{"
+    "pos.xy *= scale_factor - (scale_factor * grey);\n"
+    "pos.z += z_trans - (z_trans * grey);\n"
+    "}"
+    "pos.x += cell_xy.x;\n"
+    "pos.y += cell_xy.y;\n"
+    "cache_position = pos;\n"
+    "cogl_position_out = cogl_modelview_projection_matrix * cache_position;\n");
+
   engine->blended_discard_snippet =
     cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
                       /* definitions */
@@ -456,7 +491,7 @@ rig_renderer_init (RigEngine *engine)
 
          /* post */
          "cogl_color_out = av_color;\n"
-         "cogl_color_out *= texture2D (cogl_sampler8, cogl_tex_coord0_in.st);\n"
+         "cogl_color_out *= texture2D (cogl_sampler8, cogl_tex_coord1_in.st);\n"
          "if (cogl_color_out.a  > 0.90 || cogl_color_out.a == 0.0)\n"
          "discard;\n");
 
@@ -467,7 +502,7 @@ rig_renderer_init (RigEngine *engine)
 
          /* post */
          "cogl_color_out = av_color;\n"
-         "cogl_color_out *= texture2D (cogl_sampler8, cogl_tex_coord0_in.st);\n"
+         "cogl_color_out *= texture2D (cogl_sampler8, cogl_tex_coord1_in.st);\n"
          "if (cogl_color_out.a  < 0.90)\n"
          "discard;\n");
 }
@@ -858,6 +893,9 @@ get_entity_color_pipeline (RigEngine *engine,
           else
             cache_pln = FALSE;
         }
+      else if (material->texture_asset &&
+               rut_object_get_type (geometry) == &rut_pointalism_grid_type)
+        pointalism_on = TRUE;
     }
 
   if (blended)
@@ -893,7 +931,7 @@ get_entity_color_pipeline (RigEngine *engine,
       if (texture_asset)
         texture = rut_asset_get_texture (texture_asset);
       if (texture)
-          cogl_pipeline_set_layer_texture (pipeline, 1, texture);
+        cogl_pipeline_set_layer_texture (pipeline, 1, texture);
 
       if (normal_map_asset)
         normal_map = rut_asset_get_texture (normal_map_asset);
@@ -935,7 +973,13 @@ get_entity_color_pipeline (RigEngine *engine,
   cogl_pipeline_add_snippet (pipeline, engine->position_cache_vertex_global);
 
   if (pointalism_on)
-    cogl_pipeline_add_snippet (pipeline, engine->pointalism_vertex_snippet);
+    {
+      if (is_video)
+        cogl_pipeline_add_snippet (pipeline, engine->pointalism_vertex_snippet);
+      else
+        cogl_pipeline_add_snippet (pipeline,
+                                   engine->pointalism_vertex_tex_snippet);
+    }
   else
     cogl_pipeline_add_snippet (pipeline,
                                engine->position_cache_vertex_transform);

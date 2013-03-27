@@ -157,7 +157,7 @@ primitive_new_grid (CoglContext *ctx,
   attributes[2] = cogl_attribute_new (attribute_buffer,
                                       "cogl_tex_coord1_in",
                                       sizeof (GridVertex),
-                                      offsetof (GridVertex, s3),
+                                      offsetof (GridVertex, s0),
                                       2,
                                       COGL_ATTRIBUTE_TYPE_FLOAT);
 
