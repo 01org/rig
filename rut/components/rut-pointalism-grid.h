@@ -30,6 +30,8 @@ enum {
   RUT_POINTALISM_GRID_PROP_SCALE,
   RUT_POINTALISM_GRID_PROP_Z,
   RUT_POINTALISM_GRID_PROP_LIGHTER,
+  RUT_POINTALISM_GRID_PROP_COLUMNS,
+  RUT_POINTALISM_GRID_PROP_ROWS,
   RUT_POINTALISM_GRID_N_PROPS
 };
 
@@ -68,6 +70,10 @@ struct _RutPointalismGrid
 
   RutSimpleIntrospectableProps introspectable;
   RutProperty properties[RUT_POINTALISM_GRID_N_PROPS];
+  float cols;
+  float rows;
+  int tex_width;
+  int tex_height;
 };
 
 void
@@ -78,8 +84,8 @@ rut_pointalism_grid_new (RutContext *ctx,
                          float size,
                          int tex_width,
                          int tex_height,
-                         int columns,
-                         int rows);
+                         float columns,
+                         float rows);
 
 CoglPrimitive *
 rut_pointalism_grid_get_primitive (RutObject *object);
@@ -88,24 +94,38 @@ RutMesh *
 rut_pointalism_grid_get_pick_mesh (RutObject *self);
 
 float
-rut_pontalism_grid_get_pointalism_scale (RutObject *obj);
+rut_pointalism_grid_get_scale (RutObject *obj);
 
 void
-rut_pontalism_grid_set_pointalism_scale (RutObject *obj,
-                                         float scale);
+rut_pointalism_grid_set_scale (RutObject *obj,
+                               float scale);
 
 float
-rut_pontalism_grid_get_pointalism_z (RutObject *obj);
+rut_pointalism_grid_get_z (RutObject *obj);
 
 void
-rut_pontalism_grid_set_pointalism_z (RutObject *obj,
-                                     float z);
+rut_pointalism_grid_set_z (RutObject *obj,
+                           float z);
 
 CoglBool
-rut_pontalism_grid_get_pointalism_lighter (RutObject *obj);
+rut_pointalism_grid_get_lighter (RutObject *obj);
 
 void
-rut_pontalism_grid_set_pointalism_lighter (RutObject *obj,
-                                          CoglBool lighter);
+rut_pointalism_grid_set_lighter (RutObject *obj,
+                                 CoglBool lighter);
+
+float
+rut_pointalism_grid_get_columns (RutObject *obj);
+
+void
+rut_pointalism_grid_set_columns (RutObject *obj,
+                                 float cols);
+
+float
+rut_pointalism_grid_get_rows (RutObject *obj);
+
+void
+rut_pointalism_grid_set_rows (RutObject *obj,
+                              float rows);
 
 #endif /* __RUT_POINTALISM_GRID_H__ */
