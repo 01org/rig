@@ -496,6 +496,30 @@ serialize_component_cb (RutComponent *component,
       pb_component->diamond->has_size = TRUE;
       pb_component->diamond->size = rut_diamond_get_size (RUT_DIAMOND (component));
     }
+  else if (type == &rut_pointalism_grid_type)
+    {
+      float scale_factor = rut_pointalism_grid_get_scale (RUT_POINTALISM_GRID (component));
+      float z_factor = rut_pointalism_grid_get_z (RUT_POINTALISM_GRID (component));
+      CoglBool lighter = rut_pointalism_grid_get_lighter (RUT_POINTALISM_GRID (component));
+      float columns = rut_pointalism_grid_get_columns (RUT_POINTALISM_GRID (component));
+      float rows = rut_pointalism_grid_get_rows (RUT_POINTALISM_GRID (component));
+
+      pb_component->type = RIG__ENTITY__COMPONENT__TYPE__POINTALISM_GRID;
+      pb_component->pointalism_grid = pb_new (engine,
+                                              sizeof (Rig__Entity__Component__PointalismGrid),
+                                              rig__entity__component__pointalism_grid__init);
+      pb_component->pointalism_grid->has_scale_factor = TRUE;
+      pb_component->pointalism_grid->has_z_displace = TRUE;
+      pb_component->pointalism_grid->has_lighter = TRUE;
+      pb_component->pointalism_grid->has_columns = TRUE;
+      pb_component->pointalism_grid->has_rows = TRUE;
+
+      pb_component->pointalism_grid->scale_factor = scale_factor;
+      pb_component->pointalism_grid->z_displace = z_factor;
+      pb_component->pointalism_grid->lighter = lighter;
+      pb_component->pointalism_grid->columns = columns;
+      pb_component->pointalism_grid->rows = rows;
+    }
   else if (type == &rut_model_type)
     {
       RutModel *model = RUT_MODEL (component);
@@ -1321,6 +1345,7 @@ unserialize_components (UnSerializer *unserializer,
           }
         case RIG__ENTITY__COMPONENT__TYPE__SHAPE:
         case RIG__ENTITY__COMPONENT__TYPE__DIAMOND:
+        case RIG__ENTITY__COMPONENT__TYPE__POINTALISM_GRID:
           break;
         case RIG__ENTITY__COMPONENT__TYPE__MODEL:
           {
@@ -1543,6 +1568,55 @@ unserialize_components (UnSerializer *unserializer,
             rut_entity_add_component (entity, diamond);
 
             register_unserializer_object (unserializer, diamond, component_id);
+            break;
+          }
+        case RIG__ENTITY__COMPONENT__TYPE__POINTALISM_GRID:
+          {
+            Rig__Entity__Component__PointalismGrid *pb_pointalism_grid = pb_component->pointalism_grid;
+            RutMaterial *material = NULL;
+            RutAsset *asset = NULL;
+            CoglTexture *texture = NULL;
+            RutPointalismGrid *pointalism_grid;
+
+            material = rut_entity_get_component (entity,
+                                                 RUT_COMPONENT_TYPE_MATERIAL);
+
+            if (material)
+              asset = rut_material_get_texture_asset (material);
+
+            if (asset)
+              texture = rut_asset_get_texture (asset);
+
+            if (!texture)
+              {
+                collect_error (unserializer,
+                               "Can't add pointalism grid component without an \
+                                image source");
+
+                rut_refable_unref (material);
+                break;
+              }
+
+            pointalism_grid = rut_pointalism_grid_new (unserializer->engine->ctx,
+                                                       0,
+                                                       cogl_texture_get_width (texture),
+                                                       cogl_texture_get_height (texture),
+                                                       pb_pointalism_grid->columns,
+                                                       pb_pointalism_grid->rows);
+
+            rut_entity_add_component (entity, pointalism_grid);
+            register_unserializer_object (unserializer, pointalism_grid,
+                                          component_id);
+
+            rut_pointalism_grid_set_scale (pointalism_grid,
+                                           pb_pointalism_grid->scale_factor);
+
+            rut_pointalism_grid_set_z (pointalism_grid,
+                                       pb_pointalism_grid->z_displace);
+
+            rut_pointalism_grid_set_lighter (pointalism_grid,
+                                             pb_pointalism_grid->lighter);
+
             break;
           }
         case RIG__ENTITY__COMPONENT__TYPE__MODEL:

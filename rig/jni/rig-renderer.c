@@ -940,7 +940,8 @@ get_entity_color_pipeline (RigEngine *engine,
         alpha_mask = rut_asset_get_texture (alpha_mask_asset);
 
       if (pointalism_on)
-        cogl_pipeline_set_layer_texture (pipeline, 8, material->circle_shape);
+        cogl_pipeline_set_layer_texture (pipeline, 8,
+                                         engine->ctx->circle_texture);
     }
 
 #if 0
