@@ -1492,7 +1492,7 @@ unserialize_components (UnSerializer *unserializer,
             RutMaterial *material;
             RutAsset *asset = NULL;
             CoglTexture *texture = NULL;
-            RutShape *shape;
+            RutShape *shape = NULL;
             CoglBool shaped = FALSE;
             int width, height;
 
@@ -1505,22 +1505,30 @@ unserialize_components (UnSerializer *unserializer,
             /* We need to know the size of the texture before we can create
              * a shape component */
             if (material)
-              asset = rut_material_get_texture_asset (material);
-
-            if (asset)
-              texture = rut_asset_get_texture (asset);
-
-            if (texture)
               {
-                width = cogl_texture_get_width (texture);
-                height = cogl_texture_get_height (texture);
+                if (material->texture_asset)
+                  {
+                    asset = material->texture_asset;
+                    texture = rut_asset_get_texture (asset);
+                    if (texture)
+                      {
+                        width = cogl_texture_get_width (texture);
+                        height = cogl_texture_get_height (texture);
+                      }
+                    else
+                      goto ERROR_SHAPE;
+                  }
+                else if (material->video_texture_asset)
+                  {
+                    asset = material->video_texture_asset;
+                    width = 200;
+                    height = 200;
+                  }
+                else
+                  goto ERROR_SHAPE;
               }
             else
-              {
-                collect_error (unserializer,
-                               "Can't add shape component without a texture");
-                width = height = 100;
-              }
+              goto ERROR_SHAPE;
 
             shape = rut_shape_new (unserializer->engine->ctx,
                                    shaped,
@@ -1528,6 +1536,18 @@ unserialize_components (UnSerializer *unserializer,
             rut_entity_add_component (entity, shape);
 
             register_unserializer_object (unserializer, shape, component_id);
+
+            ERROR_SHAPE:
+              {
+                if (!shape)
+                  {
+                    collect_error (unserializer,
+                    "Can't add shape component without an image source");
+
+                    rut_refable_unref (material);
+                  }
+              }
+
             break;
           }
         case RIG__ENTITY__COMPONENT__TYPE__DIAMOND:
@@ -1537,7 +1557,8 @@ unserialize_components (UnSerializer *unserializer,
             RutMaterial *material;
             RutAsset *asset = NULL;
             CoglTexture *texture = NULL;
-            RutDiamond *diamond;
+            RutDiamond *diamond = NULL;
+            int width, height;
 
             if (pb_diamond->has_size)
               diamond_size = pb_diamond->size;
@@ -1548,26 +1569,49 @@ unserialize_components (UnSerializer *unserializer,
             /* We need to know the size of the texture before we can create
              * a diamond component */
             if (material)
-              asset = rut_material_get_texture_asset (material);
-
-            if (asset)
-              texture = rut_asset_get_texture (asset);
-
-            if (!texture)
               {
-                collect_error (unserializer,
-                               "Can't add diamond component without a texture");
-                rut_refable_unref (material);
-                break;
+                if (material->texture_asset)
+                  {
+                    asset = material->texture_asset;
+                    texture = rut_asset_get_texture (asset);
+                    if (texture)
+                      {
+                        width = cogl_texture_get_width (texture);
+                        height = cogl_texture_get_height (texture);
+                      }
+                    else
+                      goto ERROR_DIAMOND;
+                  }
+                else if (material->video_texture_asset)
+                  {
+                    asset = material->video_texture_asset;
+                    width = 200;
+                    height = 200;
+                  }
+                else
+                  goto ERROR_DIAMOND;
               }
+            else
+              goto ERROR_DIAMOND;
 
             diamond = rut_diamond_new (unserializer->engine->ctx,
                                        diamond_size,
-                                       cogl_texture_get_width (texture),
-                                       cogl_texture_get_height (texture));
+                                       width, height);
             rut_entity_add_component (entity, diamond);
 
             register_unserializer_object (unserializer, diamond, component_id);
+
+            ERROR_DIAMOND:
+              {
+                if (!diamond)
+                  {
+                    collect_error (unserializer,
+                    "Can't add diamond component without an image source");
+
+                    rut_refable_unref (material);
+                  }
+              }
+
             break;
           }
         case RIG__ENTITY__COMPONENT__TYPE__POINTALISM_GRID:
@@ -1576,31 +1620,40 @@ unserialize_components (UnSerializer *unserializer,
             RutMaterial *material = NULL;
             RutAsset *asset = NULL;
             CoglTexture *texture = NULL;
-            RutPointalismGrid *pointalism_grid;
+            RutPointalismGrid *pointalism_grid = NULL;
+            int width, height;
 
             material = rut_entity_get_component (entity,
                                                  RUT_COMPONENT_TYPE_MATERIAL);
 
             if (material)
-              asset = rut_material_get_texture_asset (material);
-
-            if (asset)
-              texture = rut_asset_get_texture (asset);
-
-            if (!texture)
               {
-                collect_error (unserializer,
-                               "Can't add pointalism grid component without an \
-                                image source");
-
-                rut_refable_unref (material);
-                break;
+                if (material->texture_asset)
+                  {
+                    asset = material->texture_asset;
+                    texture = rut_asset_get_texture (asset);
+                    if (texture)
+                      {
+                        width = cogl_texture_get_width (texture);
+                        height = cogl_texture_get_height (texture);
+                      }
+                    else
+                      goto ERROR_POINTALISM;
+                  }
+                else if (material->video_texture_asset)
+                  {
+                    asset = material->video_texture_asset;
+                    width = 200;
+                    height = 200;
+                  }
+                else
+                  goto ERROR_POINTALISM;
               }
+            else
+              goto ERROR_POINTALISM;
 
             pointalism_grid = rut_pointalism_grid_new (unserializer->engine->ctx,
-                                                       0,
-                                                       cogl_texture_get_width (texture),
-                                                       cogl_texture_get_height (texture),
+                                                       0, width, height,
                                                        pb_pointalism_grid->columns,
                                                        pb_pointalism_grid->rows);
 
@@ -1616,6 +1669,17 @@ unserialize_components (UnSerializer *unserializer,
 
             rut_pointalism_grid_set_lighter (pointalism_grid,
                                              pb_pointalism_grid->lighter);
+
+            ERROR_POINTALISM:
+              {
+                if (!pointalism_grid)
+                  {
+                    collect_error (unserializer,
+                    "Can't add pointalism component without an image source");
+
+                    rut_refable_unref (material);
+                  }
+              }
 
             break;
           }

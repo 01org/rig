@@ -90,10 +90,6 @@ static void
 rig_refresh_thumbnails (gpointer instance,
                         gpointer user_data);
 
-static void
-rig_video_force_redraw (gpointer instance,
-                        gpointer user_data);
-
 #ifdef RIG_EDITOR_ENABLED
 CoglBool _rig_in_device_mode = FALSE;
 #endif
@@ -666,31 +662,12 @@ asset_input_cb (RutInputRegion *region,
                     else if (type == RUT_ASSET_TYPE_ALPHA_MASK)
                       rut_material_set_alpha_mask_asset (material, asset);
                     else if (type == RUT_ASSET_TYPE_VIDEO)
-                      {
-                        rut_material_set_video_texture_asset (material, asset);
-
-                        if (material->sink)
-                          {
-                            g_signal_connect (material->sink, "new-frame",
-                                              G_CALLBACK (rig_video_force_redraw),
-                                              engine);
-                          }
-                      }
+                      rut_material_set_video_texture_asset (material, asset);
                   }
                 else
                   {
                     material = rut_material_new (engine->ctx, asset);
                     rut_entity_add_component (entity, material);
-
-                    if (type == RUT_ASSET_TYPE_VIDEO)
-                      {
-                        if (material->sink)
-                          {
-                            g_signal_connect (material->sink, "new-frame",
-                                              G_CALLBACK (rig_video_force_redraw),
-                                              engine);
-                          }
-                      }
                   }
 
                 texture = rut_asset_get_texture (asset);
@@ -725,11 +702,20 @@ asset_input_cb (RutInputRegion *region,
                     else if (rut_object_get_type (geom) == &rut_pointalism_grid_type)
                       {
                         RutPointalismGrid *grid = geom;
+                        float scale_factor = rut_pointalism_grid_get_scale (geom);
+                        float z_factor = rut_pointalism_grid_get_z (geom);
+                        CoglBool lighter = rut_pointalism_grid_get_lighter (geom);
+                        float columns = rut_pointalism_grid_get_columns (geom);
+                        float rows = rut_pointalism_grid_get_rows (geom);
 
                         rut_entity_remove_component (entity, geom);
                         grid = rut_pointalism_grid_new (engine->ctx, 0,
-                                                        width, height, 20, 20);
+                                                        width, height, columns,
+                                                        rows);
                         rut_entity_add_component (entity, grid);
+                        rut_pointalism_grid_set_scale (grid, scale_factor);
+                        rut_pointalism_grid_set_z (grid, z_factor);
+                        rut_pointalism_grid_set_lighter (grid, lighter);
                       }
                   }
 
@@ -910,7 +896,8 @@ asset_input_cb (RutInputRegion *region,
                         }
                     }
 
-                  grid = rut_pointalism_grid_new (engine->ctx, 200, tex_width, tex_height, 20, 20);
+                  grid = rut_pointalism_grid_new (engine->ctx, 0, tex_width,
+                                                  tex_height, 20, 20);
                   rut_entity_add_component (entity, grid);
 
                   status = RUT_INPUT_EVENT_STATUS_HANDLED;
@@ -1167,14 +1154,6 @@ rig_refresh_thumbnails (gpointer instance,
   RigEngine* engine = (RigEngine*) user_data;
 
   rig_search_asset_list (engine, NULL);
-}
-
-static void
-rig_video_force_redraw (gpointer instance,
-                        gpointer user_data)
-{
-  RigEngine* engine = (RigEngine*) user_data;
-  rut_shell_queue_redraw (engine->shell);
 }
 
 static void

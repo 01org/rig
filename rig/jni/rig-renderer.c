@@ -63,6 +63,17 @@ typedef struct _RigJournalEntry
  */
 #define OPAQUE_THRESHOLD 0.9999
 
+static CoglBool refresh = FALSE;
+
+static void
+rig_force_redraw (gpointer instance,
+                  gpointer user_data)
+{
+  RigEngine* engine = (RigEngine*) user_data;
+  rut_shell_queue_redraw (engine->shell);
+  refresh = TRUE;
+}
+
 static void
 rig_journal_log (GArray *journal,
                  RigPaintContext *paint_ctx,
@@ -892,6 +903,12 @@ get_entity_color_pipeline (RigEngine *engine,
             }
           else
             cache_pln = FALSE;
+
+          if (!refresh)
+            {
+              g_signal_connect (material->sink, "new-frame",
+                                G_CALLBACK (rig_force_redraw), engine);
+            }
         }
       else if (material->texture_asset &&
                rut_object_get_type (geometry) == &rut_pointalism_grid_type)
