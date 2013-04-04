@@ -24,6 +24,7 @@
 #include "rut-global.h"
 #include "rut-asset.h"
 #include "rut-color.h"
+#include "rut-pointalism-grid.h"
 
 static RutPropertySpec _rut_material_prop_specs[] = {
   {
@@ -149,11 +150,14 @@ rut_material_new (RutContext *ctx,
 
   material->component.type = RUT_COMPONENT_TYPE_MATERIAL;
 
+  material->ctx = ctx;
+
   cogl_color_init_from_4f (&material->ambient, 0.23, 0.23, 0.23, 1);
   cogl_color_init_from_4f (&material->diffuse, 0.75, 0.75, 0.75, 1);
   cogl_color_init_from_4f (&material->specular, 0.64, 0.64, 0.64, 1);
 
   material->shininess = 100;
+  material->sink = NULL;
 
   rut_simple_introspectable_init (material,
                                   _rut_material_prop_specs,
@@ -164,6 +168,8 @@ rut_material_new (RutContext *ctx,
   material->texture_asset = NULL;
   material->normal_map_asset = NULL;
   material->alpha_mask_asset = NULL;
+  material->video_texture_asset = NULL;
+  material->circle_shape = NULL;
 
   if (asset)
     {
@@ -171,12 +177,18 @@ rut_material_new (RutContext *ctx,
         {
         case RUT_ASSET_TYPE_TEXTURE:
           material->texture_asset = rut_refable_ref (asset);
+          material->circle_shape = ctx->circle_texture;
           break;
         case RUT_ASSET_TYPE_NORMAL_MAP:
           material->normal_map_asset = rut_refable_ref (asset);
           break;
         case RUT_ASSET_TYPE_ALPHA_MASK:
           material->alpha_mask_asset = rut_refable_ref (asset);
+          break;
+        case RUT_ASSET_TYPE_VIDEO:
+          material->video_texture_asset = rut_refable_ref (asset);
+          material->circle_shape = ctx->circle_texture;
+          rut_material_video_play (material, ctx);
           break;
         default:
           g_warn_if_reached ();
@@ -194,6 +206,13 @@ rut_material_set_texture_asset (RutMaterial *material,
     {
       rut_refable_unref (material->texture_asset);
       material->texture_asset = NULL;
+    }
+
+  if (material->video_texture_asset)
+    {
+      rut_refable_unref (material->video_texture_asset);
+      material->video_texture_asset = NULL;
+      rut_material_video_stop (material);
     }
 
   if (texture_asset)
@@ -244,6 +263,98 @@ RutAsset *
 rut_material_get_alpha_mask_asset (RutMaterial *material)
 {
   return material->alpha_mask_asset;
+}
+
+void
+rut_material_set_video_texture_asset (RutMaterial *material,
+                                      RutAsset *asset)
+{
+  if (material->texture_asset)
+    {
+      rut_refable_unref (material->texture_asset);
+      material->texture_asset = NULL;
+    }
+
+  if (material->video_texture_asset)
+    {
+      rut_material_video_stop (material);
+      rut_refable_unref (material->video_texture_asset);
+      material->video_texture_asset = NULL;
+    }
+
+  if (asset)
+    {
+      material->video_texture_asset = rut_refable_ref (asset);
+      material->circle_shape = material->ctx->circle_texture;
+      rut_material_video_play (material, material->ctx);
+    }
+}
+
+RutAsset *
+rut_material_get_video_texture_asset (RutMaterial *material)
+{
+  return material->video_texture_asset;
+}
+
+CoglBool
+loop_video (GstBus *bus,
+            GstMessage *msg,
+            void *data)
+{
+  RutMaterial *material = (RutMaterial*) data;
+  switch (GST_MESSAGE_TYPE(msg))
+    {
+      case GST_MESSAGE_EOS:
+        gst_element_seek (material->pipeline, 1.0, GST_FORMAT_TIME,
+                          GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, 0,
+                          GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
+        break;
+      default:
+        break;
+    }
+  return TRUE;
+}
+
+void
+rut_material_video_play (RutMaterial *material,
+                         RutContext *ctx)
+{
+  GstBus* bus;
+  char *uri;
+  char *filename = g_build_filename (ctx->assets_location,
+                                     rut_asset_get_path (material->video_texture_asset),
+                                     NULL);
+
+  if (material->sink)
+    gst_element_set_state (material->pipeline, GST_STATE_NULL);
+
+  material->sink = cogl_gst_video_sink_new (ctx->cogl_context);
+  material->pipeline = gst_pipeline_new ("renderer");
+  material->bin = gst_element_factory_make ("playbin", NULL);
+  uri = g_strconcat ("file://", filename, NULL);
+  g_object_set (G_OBJECT (material->bin), "video-sink",
+                GST_ELEMENT (material->sink), NULL);
+  g_object_set (G_OBJECT (material->bin), "uri", uri, NULL);
+  gst_bin_add (GST_BIN (material->pipeline), material->bin);
+
+  bus = gst_pipeline_get_bus (GST_PIPELINE (material->pipeline));
+
+  gst_element_set_state (material->pipeline, GST_STATE_PLAYING);
+  gst_bus_add_watch (bus, loop_video, material);
+
+  g_free (uri);
+  g_free (filename);
+  gst_object_unref (bus);
+}
+
+void
+rut_material_video_stop (RutMaterial *material)
+{
+  if (material->sink)
+    {
+      gst_element_set_state (material->pipeline, GST_STATE_NULL);
+      gst_object_unref (material->sink);
+    }
 }
 
 void
@@ -350,6 +461,9 @@ rut_material_flush_uniforms (RutMaterial *material,
                              CoglPipeline *pipeline)
 {
   int location;
+  CoglBool pointalism_on = FALSE;
+  RutComponent *geo = NULL;
+  RutEntity *entity = material->component.entity;
 
   //if (material->uniforms_age == material->uniforms_flush_age)
   //  return;
@@ -379,6 +493,40 @@ rut_material_flush_uniforms (RutMaterial *material,
   location = cogl_pipeline_get_uniform_location (pipeline,
                                                  "material_alpha_threshold");
   cogl_pipeline_set_uniform_1f (pipeline, location, material->alpha_mask_threshold);
+
+  if (material->video_texture_asset)
+    {
+      geo = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_GEOMETRY);
+
+      if (cogl_gst_video_sink_get_pipeline (material->sink) &&
+          rut_object_get_type (geo) == &rut_pointalism_grid_type)
+        pointalism_on = TRUE;
+    }
+  else if (material->texture_asset)
+    {
+      geo = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_GEOMETRY);
+
+      if (rut_object_get_type (geo) == &rut_pointalism_grid_type)
+        pointalism_on = TRUE;
+    }
+
+  if (pointalism_on)
+    {
+      RutPointalismGrid *grid = RUT_POINTALISM_GRID (geo);
+      location = cogl_pipeline_get_uniform_location (pipeline, "scale_factor");
+      cogl_pipeline_set_uniform_1f (pipeline, location,
+                                    grid->pointalism_scale);
+
+      location = cogl_pipeline_get_uniform_location (pipeline, "z_trans");
+      cogl_pipeline_set_uniform_1f (pipeline, location, grid->pointalism_z);
+
+      location = cogl_pipeline_get_uniform_location (pipeline, "anti_scale");
+
+      if (grid->pointalism_lighter)
+        cogl_pipeline_set_uniform_1i (pipeline, location, 1);
+      else
+        cogl_pipeline_set_uniform_1i (pipeline, location, 0);
+    }
 
   material->uniforms_flush_age = material->uniforms_age;
 }

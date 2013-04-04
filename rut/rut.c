@@ -441,6 +441,8 @@ _rut_init (void)
       _rut_material_init_type ();
       _rut_diamond_init_type ();
       _rut_diamond_slice_init_type ();
+      _rut_pointalism_grid_init_type ();
+      _rut_pointalism_grid_slice_init_type ();
       _rut_shape_init_type ();
       _rut_shape_model_init_type ();
 

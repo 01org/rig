@@ -101,9 +101,10 @@ struct _RigEngine
   RutBoxLayout *top_bar_hbox;
   RutBoxLayout *top_bar_hbox_ltr;
   RutBoxLayout *top_bar_hbox_rtl;
+  RutBoxLayout *asset_panel_hbox;
   RutBoxLayout *toolbar_vbox;
   RutBoxLayout *properties_hbox;
-  RigSplitView *splits[2];
+  RigSplitView *splits[1];
 
   //RutBevel *main_area_bevel;
   RigCameraView *main_camera_view;
@@ -138,10 +139,16 @@ struct _RigEngine
 
   RutUIViewport *assets_vp;
   RutFold *assets_results_fold;
-  RutFlowLayout *assets_flow;
+  RutBoxLayout *assets_results_vbox;
+  RutFlowLayout *assets_geometry_results;
+  RutFlowLayout *assets_image_results;
+  RutFlowLayout *assets_video_results;
+  RutFlowLayout *assets_other_results;
+
   RutAsset *text_builtin_asset;
   RutAsset *circle_builtin_asset;
   RutAsset *diamond_builtin_asset;
+  RutAsset *pointalism_grid_builtin_asset;
   GList *asset_input_closures;
   GList *asset_enumerators;
 
@@ -158,6 +165,12 @@ struct _RigEngine
 
   RutEntity *light;
   RutEntity *light_handle;
+
+  RutEntity *play_camera;
+  RutCamera *play_camera_component;
+#ifdef RIG_EDITOR_ENABLED
+  RutEntity *play_camera_handle;
+#endif
 
   /* postprocessing */
   CoglFramebuffer *postprocess;
@@ -216,6 +229,15 @@ struct _RigEngine
   CoglSnippet *material_lighting_snippet;
   CoglSnippet *simple_lighting_snippet;
   CoglSnippet *shadow_mapping_fragment_snippet;
+  CoglSnippet *video_fragment_snippet;
+  CoglSnippet *video_shaped_fragment_snippet;
+  CoglSnippet *video_diamond_fragment_snippet;
+  CoglSnippet *pointalism_vertex_snippet;
+  CoglSnippet *pointalism_vertex_tex_snippet;
+  CoglSnippet *pointalism_opaque_fragment_snippet;
+  CoglSnippet *pointalism_halo_fragment_snippet;
+  CoglSnippet *position_cache_vertex_global;
+  CoglSnippet *position_cache_vertex_transform;
 
   GHashTable *assets_registry;
 

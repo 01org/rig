@@ -31,6 +31,13 @@
 #include "rig-view.h"
 #include "rig-renderer.h"
 
+typedef struct
+{
+  RutEntity *origin_offset; /* negative offset */
+  RutEntity *dev_scale; /* scale to fit device coords */
+  RutEntity *screen_pos; /* position screen in edit view */
+} RigCameraViewDeviceTransforms;
+
 struct _RigCameraView
 {
   RutObjectProps _parent;
@@ -57,11 +64,18 @@ struct _RigCameraView
 
   RutEntity *view_camera_to_origin; /* move to origin */
   RutEntity *view_camera_rotate; /* armature rotate rotate */
-  RutEntity *view_camera_origin_offset; /* negative offset */
   RutEntity *view_camera_armature; /* armature length */
-  RutEntity *view_camera_dev_scale; /* scale to fit device coords */
-  RutEntity *view_camera_screen_pos; /* position screen in edit view */
   RutEntity *view_camera_2d_view; /* setup 2d view, origin top-left */
+  RigCameraViewDeviceTransforms view_device_transforms;
+
+  RutEntity *play_camera;
+  RutCamera *play_camera_component;
+  RigCameraViewDeviceTransforms play_device_transforms;
+  /* This entity is added as a child of all of the play device
+   * transforms. During paint the camera component is temporarily
+   * stolen from the play camera entity so that it can be transformed
+   * with the device transforms */
+  RutEntity *play_dummy_entity;
 
   RutEntity *view_camera;
   RutCamera *view_camera_component;
@@ -76,11 +90,20 @@ struct _RigCameraView
 RutType rig_camera_view_type;
 
 static void
+unref_device_transforms (RigCameraViewDeviceTransforms *transforms)
+{
+  rut_refable_unref (transforms->origin_offset);
+  rut_refable_unref (transforms->dev_scale);
+  rut_refable_unref (transforms->screen_pos);
+}
+
+static void
 _rig_camera_view_free (void *object)
 {
   RigCameraView *view = object;
 
   rig_camera_view_set_scene (view, NULL);
+  rig_camera_view_set_play_camera (view, NULL);
 
   rut_shell_remove_pre_paint_callback (view->context->shell, view);
 
@@ -91,12 +114,13 @@ _rig_camera_view_free (void *object)
   rut_refable_unref (view->view_camera_to_origin);
   rut_refable_unref (view->view_camera_rotate);
   rut_refable_unref (view->view_camera_armature);
-  rut_refable_unref (view->view_camera_origin_offset);
-  rut_refable_unref (view->view_camera_dev_scale);
-  rut_refable_unref (view->view_camera_screen_pos);
   rut_refable_unref (view->view_camera_2d_view);
   rut_refable_unref (view->view_camera);
   rut_refable_unref (view->view_camera_component);
+  unref_device_transforms (&view->view_device_transforms);
+
+  rut_refable_unref (view->play_dummy_entity);
+  unref_device_transforms (&view->play_device_transforms);
 
   g_slice_free (RigCameraView, view);
 }
@@ -195,6 +219,52 @@ paint_overlays (RigCameraView *view,
 }
 
 static void
+copy_device_transforms (RigCameraViewDeviceTransforms *dst,
+                        RigCameraViewDeviceTransforms *src)
+{
+  rut_entity_set_position (dst->origin_offset,
+                           rut_entity_get_position (src->origin_offset));
+  rut_entity_set_scale (dst->dev_scale,
+                        rut_entity_get_scale (src->dev_scale));
+  rut_entity_set_position (dst->screen_pos,
+                           rut_entity_get_position (src->screen_pos));
+}
+
+static void
+prepare_play_camera_for_view (RigCameraView *view)
+{
+  RutCamera *play_camera = view->play_camera_component;
+  RutCamera *view_camera = view->view_camera_component;
+
+  rut_camera_set_projection_mode (play_camera,
+                                  RUT_PROJECTION_PERSPECTIVE);
+  rut_camera_set_field_of_view (play_camera,
+                                rut_camera_get_field_of_view (view_camera));
+  rut_camera_set_near_plane (play_camera,
+                             rut_camera_get_near_plane (view_camera));
+  rut_camera_set_far_plane (play_camera,
+                            rut_camera_get_far_plane (view_camera));
+
+  copy_device_transforms (&view->play_device_transforms,
+                          &view->view_device_transforms);
+
+  /* Temporarily move the play camera component to our dummy entity so
+   * that it will be positioned with the device transforms after the
+   * camera entity's transform */
+  rut_entity_remove_component (view->play_camera, play_camera);
+  rut_entity_add_component (view->play_dummy_entity, play_camera);
+}
+
+static void
+reset_play_camera (RigCameraView *view)
+{
+  rut_entity_remove_component (view->play_dummy_entity,
+                               view->play_camera_component);
+  rut_entity_add_component (view->play_camera,
+                            view->play_camera_component);
+}
+
+static void
 _rut_camera_view_paint (RutObject *object,
                         RutPaintContext *paint_ctx)
 {
@@ -203,12 +273,34 @@ _rut_camera_view_paint (RutObject *object,
   RutCamera *suspended_camera = paint_ctx->camera;
   RigPaintContext *rig_paint_ctx = (RigPaintContext *)paint_ctx;
   CoglFramebuffer *fb = rut_camera_get_framebuffer (paint_ctx->camera);
+  RutEntity *camera;
+  RutCamera *camera_component;
+  CoglBool need_play_camera_reset = FALSE;
   float x, y, z;
 
   if (view->scene == NULL)
     return;
 
-  rut_camera_set_framebuffer (view->view_camera_component, fb);
+#ifdef RIG_EDITOR_ENABLED
+  if (!_rig_in_device_mode && !engine->play_mode)
+    {
+      camera = view->view_camera;
+      camera_component = view->view_camera_component;
+    }
+  else
+#endif /* RIG_EDITOR_ENABLED */
+    {
+      if (view->play_camera == NULL)
+        return;
+
+      prepare_play_camera_for_view (view);
+
+      camera = view->play_dummy_entity;
+      camera_component = view->play_camera_component;
+      need_play_camera_reset = TRUE;
+    }
+
+  rut_camera_set_framebuffer (camera_component, fb);
 
   cogl_framebuffer_draw_rectangle (fb,
                                    view->bg_pipeline,
@@ -233,11 +325,14 @@ _rut_camera_view_paint (RutObject *object,
   /* XXX: if the viewport width/height get changed during allocation
    * then we should probably use a dirty flag so we can defer
    * the viewport update to here. */
-  if (view->last_viewport_x != x ||
-      view->last_viewport_y != y ||
-      view->dirty_viewport_size)
+  if (camera_component != view->view_camera_component)
+    rut_camera_set_viewport (camera_component,
+                             x, y, view->width, view->height);
+  else if (view->last_viewport_x != x ||
+           view->last_viewport_y != y ||
+           view->dirty_viewport_size)
     {
-      rut_camera_set_viewport (view->view_camera_component,
+      rut_camera_set_viewport (camera_component,
                                x, y, view->width, view->height);
 
       view->last_viewport_x = x;
@@ -245,13 +340,10 @@ _rut_camera_view_paint (RutObject *object,
       view->dirty_viewport_size = FALSE;
     }
 
-  rig_camera_update_view (engine, view->view_camera, FALSE);
+  rig_camera_update_view (engine, camera, FALSE);
 
   if (engine->enable_dof)
     {
-      RutCamera *camera_component =
-        rut_entity_get_component (view->view_camera,
-                                  RUT_COMPONENT_TYPE_CAMERA);
       const float *viewport = rut_camera_get_viewport (camera_component);
       int width = viewport[2];
       int height = viewport[3];
@@ -272,7 +364,7 @@ _rut_camera_view_paint (RutObject *object,
       rut_camera_end_frame (camera_component);
 
       rig_paint_ctx->pass = RIG_PASS_DOF_DEPTH;
-      rig_paint_camera_entity (view->view_camera, rig_paint_ctx);
+      rig_paint_camera_entity (camera, rig_paint_ctx);
 
       pass_fb = rut_dof_effect_get_color_pass_fb (engine->dof);
       rut_camera_set_framebuffer (camera_component, pass_fb);
@@ -284,10 +376,10 @@ _rut_camera_view_paint (RutObject *object,
       rut_camera_end_frame (camera_component);
 
       rig_paint_ctx->pass = RIG_PASS_COLOR_UNBLENDED;
-      rig_paint_camera_entity (view->view_camera, rig_paint_ctx);
+      rig_paint_camera_entity (camera, rig_paint_ctx);
 
       rig_paint_ctx->pass = RIG_PASS_COLOR_BLENDED;
-      rig_paint_camera_entity (view->view_camera, rig_paint_ctx);
+      rig_paint_camera_entity (camera, rig_paint_ctx);
 
       rut_camera_set_framebuffer (camera_component, fb);
       rut_camera_set_viewport (camera_component,
@@ -303,16 +395,19 @@ _rut_camera_view_paint (RutObject *object,
   else
     {
       rig_paint_ctx->pass = RIG_PASS_COLOR_UNBLENDED;
-      rig_paint_camera_entity (view->view_camera, rig_paint_ctx);
+      rig_paint_camera_entity (camera, rig_paint_ctx);
 
       rig_paint_ctx->pass = RIG_PASS_COLOR_BLENDED;
-      rig_paint_camera_entity (view->view_camera, rig_paint_ctx);
+      rig_paint_camera_entity (camera, rig_paint_ctx);
       rut_camera_resume (suspended_camera);
     }
 
   /* XXX: At this point the original, suspended, camera has been resumed */
 
   paint_overlays (view, paint_ctx);
+
+  if (need_play_camera_reset)
+    reset_play_camera (view);
 }
 
 static RutPaintableVTable _rig_camera_view_paintable_vtable = {
@@ -489,7 +584,7 @@ update_device_transforms (RigCameraView *view)
       engine->screen_area_height = view->height;
       engine->screen_area_width = engine->screen_area_height * screen_aspect;
 
-      rut_entity_set_translate (view->view_camera_screen_pos,
+      rut_entity_set_translate (view->view_device_transforms.screen_pos,
                                 -(view->width / 2.0) + (engine->screen_area_width / 2.0),
                                 0, 0);
     }
@@ -498,7 +593,7 @@ update_device_transforms (RigCameraView *view)
       engine->screen_area_width = view->width;
       engine->screen_area_height = engine->screen_area_width / screen_aspect;
 
-      rut_entity_set_translate (view->view_camera_screen_pos,
+      rut_entity_set_translate (view->view_device_transforms.screen_pos,
                                 0,
                                 -(view->height / 2.0) + (engine->screen_area_height / 2.0),
                                 0);
@@ -508,7 +603,8 @@ update_device_transforms (RigCameraView *view)
    * a uniform scale here... */
   view->device_scale = engine->screen_area_width / engine->device_width;
 
-  rut_entity_set_scale (view->view_camera_dev_scale, 1.0 / view->device_scale);
+  rut_entity_set_scale (view->view_device_transforms.dev_scale,
+                        1.0 / view->device_scale);
 
   /* Setup projection for main content view */
   update_view_and_projection (view);
@@ -1214,6 +1310,72 @@ entitygraph_post_pick_cb (RutObject *object,
   return RUT_TRAVERSE_VISIT_CONTINUE;
 }
 
+static void
+move_entity_to_camera (RigCameraView *view,
+                       RutEntity *entity)
+{
+  RigEngine *engine = view->engine;
+  RigUndoJournal *sub_journal = rig_undo_journal_new (engine);
+  float camera_position[3];
+  CoglMatrix parent_transform;
+  CoglMatrix inverse_parent_transform;
+  CoglQuaternion camera_rotation;
+  RutProperty *rotation_property =
+    rut_introspectable_lookup_property (entity, "rotation");
+  RutBoxed boxed_rotation;
+  RutObject *parent;
+
+  /* Get the world position of the view camera */
+  memset (camera_position, 0, sizeof (camera_position));
+  rut_entity_get_transformed_position (view->view_camera_armature,
+                                       camera_position);
+
+  /* Get the transform of the parent of the entity so we can calculate
+   * a position relative to the parent */
+  cogl_matrix_init_identity (&parent_transform);
+  parent = rut_graphable_get_parent (entity);
+  if (parent)
+    rut_graphable_apply_transform (parent, &parent_transform);
+
+  /* Transform the camera position by the inverse of the entity's
+   * parent transform so that we will have a position in the
+   * coordinate space of the entity */
+  if (cogl_matrix_get_inverse (&parent_transform, &inverse_parent_transform))
+    {
+      cogl_matrix_transform_points (&inverse_parent_transform,
+                                    3, /* n_components */
+                                    sizeof (float) * 3, /* stride_in */
+                                    camera_position, /* points_in */
+                                    sizeof (float) * 3, /* stride_out */
+                                    camera_position, /* points_out */
+                                    1 /* n_points */);
+
+      rig_undo_journal_move_and_log (sub_journal,
+                                     FALSE, /* mergable */
+                                     entity,
+                                     camera_position[0],
+                                     camera_position[1],
+                                     camera_position[2]);
+    }
+
+  /* Copy the camera's rotation. FIXME: this should probably also try
+   * to counteract the entity's parent rotations to match what it does
+   * for the positioning */
+  rut_entity_get_rotations (view->view_camera_armature,
+                            &camera_rotation);
+
+  boxed_rotation.type = RUT_PROPERTY_TYPE_QUATERNION;
+  boxed_rotation.d.quaternion_val = camera_rotation;
+
+  rig_undo_journal_set_property_and_log (sub_journal,
+                                         FALSE,
+                                         &boxed_rotation,
+                                         rotation_property);
+
+  rig_undo_journal_log_subjournal (engine->undo_journal,
+                                   sub_journal);
+}
+
 static RutEntity *
 pick (RigEngine *engine,
       RutCamera *camera,
@@ -1249,6 +1411,36 @@ pick (RigEngine *engine,
   return pick_ctx.selected_entity;
 }
 
+static void
+initialize_navigation_camera (RigCameraView *view)
+{
+  RigEngine *engine = view->engine;
+  CoglQuaternion no_rotation;
+
+  view->origin[0] = engine->device_width / 2;
+  view->origin[1] = engine->device_height / 2;
+  view->origin[2] = 0;
+
+  rut_entity_set_translate (view->view_camera_to_origin,
+                            view->origin[0],
+                            view->origin[1],
+                            view->origin[2]);
+
+  cogl_quaternion_init_identity (&no_rotation);
+  rut_entity_set_rotation (view->view_camera_rotate, &no_rotation);
+
+  rut_camera_set_zoom (view->view_camera_component, 1);
+
+  rut_entity_set_translate (view->view_device_transforms.origin_offset,
+                            -engine->device_width / 2,
+                            -(engine->device_height / 2), 0);
+
+  view->view_camera_z = 10.f;
+
+  update_camera_position (view);
+
+  update_device_transforms (view);
+}
 
 static RutInputEventStatus
 input_cb (RutInputEvent *event,
@@ -1269,6 +1461,7 @@ input_cb (RutInputEvent *event,
 
       rut_camera_transform_window_coordinate (view->view_camera_component,
                                               &x, &y);
+      g_print ("window x=%f y=%f\n", x, y);
 
       state = rut_motion_event_get_button_state (event);
 
@@ -1537,6 +1730,15 @@ input_cb (RutInputEvent *event,
               rig_set_selected_entity (engine, NULL);
             }
           break;
+        case RUT_KEY_j:
+          if ((rut_key_event_get_modifier_state (event) &
+               RUT_MODIFIER_CTRL_ON) &&
+              engine->selected_entity)
+            move_entity_to_camera (view, engine->selected_entity);
+          break;
+        case RUT_KEY_0:
+          initialize_navigation_camera (view);
+          break;
         }
     }
 #endif /* RIG_EDITOR_ENABLED */
@@ -1627,6 +1829,30 @@ input_region_cb (RutInputRegion *region,
     return device_mode_input_cb (event, user_data);
 }
 
+static void
+init_device_transforms (RutContext *ctx,
+                        RigCameraViewDeviceTransforms *transforms)
+{
+  /* It simplifies things if all the viewport setup for the
+   * camera is handled using entity transformations as opposed to
+   * mixing entity transforms with manual camera view transforms.
+   *
+   * The same chain of transforms is used for the play camera and the
+   * view camera so it is encapsulated in a separate struct.
+   */
+
+  transforms->origin_offset = rut_entity_new (ctx);
+  rut_entity_set_label (transforms->origin_offset, "rig:camera_origin_offset");
+
+  transforms->dev_scale = rut_entity_new (ctx);
+  rut_graphable_add_child (transforms->origin_offset, transforms->dev_scale);
+  rut_entity_set_label (transforms->dev_scale, "rig:camera_dev_scale");
+
+  transforms->screen_pos = rut_entity_new (ctx);
+  rut_graphable_add_child (transforms->dev_scale, transforms->screen_pos);
+  rut_entity_set_label (transforms->screen_pos, "rig:camera_screen_pos");
+}
+
 RigCameraView *
 rig_camera_view_new (RigEngine *engine)
 {
@@ -1657,7 +1883,6 @@ rig_camera_view_new (RigEngine *engine)
 
   rut_graphable_add_child (view, view->input_region);
 
-
   /* Conceptually we rig the camera to an armature with a pivot fixed
    * at the current origin. This setup makes it straight forward to
    * model user navigation by letting us change the length of the
@@ -1665,12 +1890,7 @@ rig_camera_view_new (RigEngine *engine)
    * middle-click rotating the scene with the mouse and moving the
    * position of the armature for shift-middle-click translations with
    * the mouse.
-   *
-   * It also simplifies things if all the viewport setup for the
-   * camera is handled using entity transformations as opposed to
-   * mixing entity transforms with manual camera view transforms.
    */
-
   view->view_camera_to_origin = rut_entity_new (engine->ctx);
   rut_entity_set_label (view->view_camera_to_origin, "rig:camera_to_origin");
 
@@ -1682,57 +1902,31 @@ rig_camera_view_new (RigEngine *engine)
   rut_graphable_add_child (view->view_camera_rotate, view->view_camera_armature);
   rut_entity_set_label (view->view_camera_armature, "rig:camera_armature");
 
-  view->view_camera_origin_offset = rut_entity_new (engine->ctx);
-  rut_graphable_add_child (view->view_camera_armature, view->view_camera_origin_offset);
-  rut_entity_set_label (view->view_camera_origin_offset, "rig:camera_origin_offset");
+  init_device_transforms (ctx, &view->view_device_transforms);
+  rut_graphable_add_child (view->view_camera_armature,
+                           view->view_device_transforms.origin_offset);
 
-  view->view_camera_dev_scale = rut_entity_new (engine->ctx);
-  rut_graphable_add_child (view->view_camera_origin_offset, view->view_camera_dev_scale);
-  rut_entity_set_label (view->view_camera_dev_scale, "rig:camera_dev_scale");
-
-  view->view_camera_screen_pos = rut_entity_new (engine->ctx);
-  rut_graphable_add_child (view->view_camera_dev_scale, view->view_camera_screen_pos);
-  rut_entity_set_label (view->view_camera_screen_pos, "rig:camera_screen_pos");
+  view->view_camera = rut_entity_new (engine->ctx);
+  //rut_graphable_add_child (view->view_camera_2d_view, view->view_camera); FIXME
+  rut_graphable_add_child (view->view_device_transforms.screen_pos,
+                           view->view_camera);
+  rut_entity_set_label (view->view_camera, "rig:camera");
 
   view->view_camera_2d_view = rut_entity_new (engine->ctx);
   //rut_graphable_add_child (view->view_camera_screen_pos, view->view_camera_2d_view); FIXME
   rut_entity_set_label (view->view_camera_2d_view, "rig:camera_2d_view");
 
-  view->view_camera = rut_entity_new (engine->ctx);
-  //rut_graphable_add_child (view->view_camera_2d_view, view->view_camera); FIXME
-  rut_graphable_add_child (view->view_camera_screen_pos, view->view_camera);
-  rut_entity_set_label (view->view_camera, "rig:camera");
-
   view->view_camera_component = rut_camera_new (engine->ctx, NULL);
   rut_camera_set_clear (view->view_camera_component, FALSE);
   rut_entity_add_component (view->view_camera, view->view_camera_component);
 
+  init_device_transforms (ctx, &view->play_device_transforms);
+  view->play_dummy_entity = rut_entity_new (ctx);
+  rut_entity_set_label (view->play_dummy_entity, "rig:play_dummy_entity");
+  rut_graphable_add_child (view->play_device_transforms.screen_pos,
+                           view->play_dummy_entity);
+
   return view;
-}
-
-static void
-initialize_navigation_camera (RigCameraView *view)
-{
-  RigEngine *engine = view->engine;
-
-  view->origin[0] = engine->device_width / 2;
-  view->origin[1] = engine->device_height / 2;
-  view->origin[2] = 0;
-
-  rut_entity_set_translate (view->view_camera_to_origin,
-                            view->origin[0],
-                            view->origin[1],
-                            view->origin[2]);
-
-  rut_entity_set_translate (view->view_camera_origin_offset,
-                            -engine->device_width / 2,
-                            -(engine->device_height / 2), 0);
-
-  view->view_camera_z = 10.f;
-
-  update_camera_position (view);
-
-  update_device_transforms (view);
 }
 
 void
@@ -1762,4 +1956,34 @@ rig_camera_view_set_scene (RigCameraView *view,
   /* XXX: to avoid having a circular reference we don't take a
    * reference on the scene... */
   view->scene = scene;
+}
+
+void
+rig_camera_view_set_play_camera (RigCameraView *view,
+                                 RutEntity *play_camera)
+{
+  if (view->play_camera == play_camera)
+    return;
+
+  if (view->play_camera)
+    {
+      rut_graphable_remove_child (view->play_device_transforms.origin_offset);
+      rut_refable_unref (view->play_camera);
+      rut_refable_unref (view->play_camera_component);
+    }
+
+  if (play_camera)
+    {
+      view->play_camera = rut_refable_ref (play_camera);
+
+      rut_graphable_add_child (play_camera,
+                               view->play_device_transforms.origin_offset);
+
+      view->play_camera_component =
+        rut_entity_get_component (play_camera,
+                                  RUT_COMPONENT_TYPE_CAMERA);
+      rut_refable_ref (view->play_camera_component);
+    }
+  else
+    view->play_camera_component = NULL;
 }

@@ -42,7 +42,8 @@ enum {
   LOADER_STATE_LOADING_TRANSITION,
   LOADER_STATE_LOADING_PROPERTY,
   LOADER_STATE_LOADING_CONSTANT,
-  LOADER_STATE_LOADING_PATH
+  LOADER_STATE_LOADING_PATH,
+  LOADER_STATE_LOADING_POINTALISM_GRID_COMPONENT,
 };
 
 typedef struct _Loader
@@ -86,6 +87,12 @@ typedef struct _Loader
   float diamond_size;
   RutEntity *current_entity;
   CoglBool is_light;
+
+  float scale_factor;
+  float z_displace;
+  CoglBool lighter;
+  float columns;
+  float rows;
 
   RigTransition *current_transition;
   RigTransitionPropData *current_property;
@@ -945,6 +952,46 @@ parse_start_element (GMarkupParseContext *context,
       loader_push_state (loader, LOADER_STATE_LOADING_DIAMOND_COMPONENT);
     }
   else if (state == LOADER_STATE_LOADING_ENTITY &&
+           strcmp (element_name, "pointalism_grid") == 0)
+    {
+      const char *id_str, *scale_str, *z_str, *lighter_str, *col_str, *row_str;
+
+      if (!g_markup_collect_attributes (element_name, attribute_names,
+                                        attribute_values, error,
+                                        G_MARKUP_COLLECT_STRING |
+                                        G_MARKUP_COLLECT_OPTIONAL,
+                                        "id", &id_str, G_MARKUP_COLLECT_STRING,
+                                        "scale_factor", &scale_str,
+                                        G_MARKUP_COLLECT_STRING, "z_displace",
+                                        &z_str, G_MARKUP_COLLECT_STRING,
+                                        "lighter", &lighter_str,
+                                        G_MARKUP_COLLECT_STRING, "columns",
+                                        &col_str, G_MARKUP_COLLECT_STRING,
+                                        "rows", &row_str,
+                                        G_MARKUP_COLLECT_INVALID))
+        return;
+
+      loader->component_id = id_str ? g_ascii_strtoull (id_str, NULL, 10) : 0;
+
+      loader->scale_factor = g_ascii_strtod (scale_str, NULL);
+      loader->z_displace = g_ascii_strtod (z_str, NULL);
+
+      if (strcmp (lighter_str, "true") == 0)
+        loader->lighter = TRUE;
+      else if (strcmp (lighter_str, "false") == 0)
+        loader->lighter = FALSE;
+      else
+        {
+          g_warn_if_reached ();
+          loader->lighter = TRUE;
+        }
+
+       loader->columns = g_ascii_strtod (col_str, NULL);
+       loader->rows = g_ascii_strtod (row_str, NULL);
+
+       loader_push_state (loader, LOADER_STATE_LOADING_POINTALISM_GRID_COMPONENT);
+    }
+  else if (state == LOADER_STATE_LOADING_ENTITY &&
            strcmp (element_name, "model") == 0)
     {
       const char *id_str, *asset_id_str;
@@ -1334,6 +1381,50 @@ parse_end_element (GMarkupParseContext *context,
                                 diamond);
 
       if (!check_and_set_id (loader, loader->component_id, diamond, error))
+        return;
+
+      loader_pop_state (loader);
+    }
+  else if (state == LOADER_STATE_LOADING_POINTALISM_GRID_COMPONENT &&
+           strcmp (element_name, "pointalism_grid") == 0)
+    {
+      RutMaterial *material =
+        rut_entity_get_component (loader->current_entity,
+                                  RUT_COMPONENT_TYPE_MATERIAL);
+      RutAsset *asset = NULL;
+      CoglTexture *texture = NULL;
+      RutPointalismGrid *pointalism_grid;
+
+      if (material)
+        asset = rut_material_get_texture_asset (material);
+
+      if (asset)
+        texture = rut_asset_get_texture (asset);
+
+      if (!texture)
+        {
+          g_set_error (error, G_MARKUP_ERROR,
+                       G_MARKUP_ERROR_INVALID_CONTENT,
+                       "Can't add pointalism grid component without an \
+                        image source");
+
+          return;
+        }
+
+      pointalism_grid = rut_pointalism_grid_new (loader->engine->ctx,
+                                                 0,
+                                                 cogl_texture_get_width (texture),
+                                                 cogl_texture_get_height (texture),
+                                                 loader->columns, loader->rows);
+
+      rut_pointalism_grid_set_scale (pointalism_grid, loader->scale_factor);
+      rut_pointalism_grid_set_z (pointalism_grid, loader->z_displace);
+      rut_pointalism_grid_set_lighter (pointalism_grid, loader->lighter);
+
+      rut_entity_add_component (loader->current_entity, pointalism_grid);
+
+      if (!check_and_set_id (loader, loader->component_id, pointalism_grid,
+                             error))
         return;
 
       loader_pop_state (loader);

@@ -42,10 +42,18 @@ struct _RutMaterial
 
   int ref_count;
 
+  RutContext *ctx;
+
   RutComponentableProps component;
   RutAsset *texture_asset;
   RutAsset *normal_map_asset;
   RutAsset *alpha_mask_asset;
+  RutAsset *video_texture_asset;
+
+  CoglGstVideoSink *sink;
+  GstElement *bin, *pipeline;
+
+  CoglTexture *circle_shape;
 
   CoglColor ambient;
   CoglColor diffuse;
@@ -90,6 +98,13 @@ RutAsset *
 rut_material_get_alpha_mask_asset (RutMaterial *material);
 
 void
+rut_material_set_video_texture_asset (RutMaterial *material,
+                                      RutAsset *asset);
+
+RutAsset *
+rut_material_get_video_texture_asset (RutMaterial *material);
+
+void
 rut_material_set_ambient (RutObject *material,
                           const CoglColor *color);
 
@@ -124,11 +139,67 @@ void
 rut_material_set_alpha_mask_threshold (RutObject *material,
                                        float alpha_mask_threshold);
 
+CoglBool
+rut_material_get_pointalism_on (RutObject *material);
+
+void
+rut_material_set_pointalism_on (RutObject *material,
+                                CoglBool pointalism_on);
+
+float
+rut_material_get_pointalism_scale (RutObject *obj);
+
+void
+rut_material_set_pointalism_scale (RutObject *obj,
+                                   float scale);
+
+float
+rut_material_get_pointalism_z (RutObject *obj);
+
+void
+rut_material_set_pointalism_z (RutObject *obj,
+                               float z);
+
+float
+rut_material_get_pointalism_columns (RutObject *obj);
+
+void
+rut_material_set_pointalism_columns (RutObject *obj,
+                                     float cols);
+
+float
+rut_material_get_pointalism_rows (RutObject *material);
+
+void
+rut_material_set_pointalism_rows (RutObject *material,
+                                  float rows);
+
+float
+rut_material_get_pointalism_cell_size (RutObject *material);
+
+void
+rut_material_set_pointalism_cell_size (RutObject *material,
+                                       float size);
+
+CoglBool
+rut_material_get_pointalism_lighter (RutObject *material);
+
+void
+rut_material_set_pointalism_lighter (RutObject *material,
+                                     CoglBool lighter);
+
 void
 rut_material_flush_uniforms (RutMaterial *material,
                              CoglPipeline *pipeline);
 
 void
 rut_material_flush_uniforms_ignore_age (RutMaterial *material);
+
+void
+rut_material_video_play (RutMaterial *material,
+                         RutContext *ctx);
+
+void
+rut_material_video_stop (RutMaterial *material);
 
 #endif /* __RUT_MATERIAL_H__ */

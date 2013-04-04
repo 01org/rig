@@ -6,6 +6,7 @@
 #include <rig-engine.h>
 #include <rig-avahi.h>
 #include <rig-rpc-network.h>
+#include <cogl-gst/cogl-gst.h>
 
 #include "rig-pb.h"
 
@@ -233,7 +234,8 @@ main (int argc, char **argv)
                               &slave);
 
   engine.ctx = rut_context_new (engine.shell);
-
+  
+  gst_init (&argc, &argv);
   rut_context_init (engine.ctx);
 
   rut_shell_add_input_callback (engine.shell,

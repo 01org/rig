@@ -53,6 +53,7 @@
 #include "rut-button.h"
 #include "rut-fixed.h"
 #include "rut-fold.h"
+#include "rut-icon-button.h"
 
 /* entity/components system */
 #include "rut-entity.h"
