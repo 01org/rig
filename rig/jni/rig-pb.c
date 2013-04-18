@@ -433,6 +433,23 @@ serialize_component_cb (RutComponent *component,
             }
         }
 
+      asset = rut_material_get_video_texture_asset (material);
+      if (asset)
+        {
+          uint64_t id = serializer_lookup_object_id (serializer, asset);
+
+          g_warn_if_fail (id != 0);
+
+          if (id)
+            {
+              pb_material->video = pb_new (engine,
+                                           sizeof (Rig__Video),
+                                           rig__video__init);
+              pb_material->video->has_asset_id = TRUE;
+              pb_material->video->asset_id = id;
+            }
+        }
+
       asset = rut_material_get_normal_map_asset (material);
       if (asset)
         {
@@ -1236,6 +1253,22 @@ unserialize_components (UnSerializer *unserializer,
                 rut_material_set_texture_asset (material, asset);
               }
 
+            if (pb_material->video &&
+                pb_material->video->has_asset_id)
+              {
+                Rig__Video *pb_video = pb_material->video;
+
+                asset = unserializer_find_asset (unserializer,
+                                                 pb_video->asset_id);
+                if (!asset)
+                  {
+                    collect_error (unserializer, "Invalid asset id");
+                    rut_refable_unref (material);
+                    break;
+                  }
+                rut_material_set_video_texture_asset (material, asset);
+              }
+
             if (pb_material->normal_map &&
                 pb_material->normal_map->has_asset_id)
               {
@@ -1462,7 +1495,6 @@ unserialize_components (UnSerializer *unserializer,
                 collect_error (unserializer,
                                "Can't add shape component without a texture");
                 width = height = 100;
-                break;
               }
 
             shape = rut_shape_new (unserializer->engine->ctx,

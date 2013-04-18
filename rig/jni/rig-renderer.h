@@ -26,7 +26,8 @@ typedef enum _RigPass
   RIG_PASS_COLOR_UNBLENDED,
   RIG_PASS_COLOR_BLENDED,
   RIG_PASS_SHADOW,
-  RIG_PASS_DOF_DEPTH
+  RIG_PASS_DOF_DEPTH,
+  RIG_PASS_VIDEO
 } RigPass;
 
 typedef struct _RigPaintContext
@@ -58,5 +59,9 @@ rig_renderer_init (RigEngine *engine);
 
 void
 rig_renderer_fini (RigEngine *engine);
+
+void
+rig_prepare_pointalism_pipeline (gpointer instace,
+                                 gpointer user_data);
 
 #endif /* _RIG_RENDERER_H_ */

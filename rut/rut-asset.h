@@ -2,6 +2,7 @@
 #define _RUT_ASSET_H_
 
 #include <gio/gio.h>
+#include <cogl-gst/cogl-gst.h>
 
 typedef enum _RutAssetType {
   RUT_ASSET_TYPE_BUILTIN,
@@ -9,6 +10,7 @@ typedef enum _RutAssetType {
   RUT_ASSET_TYPE_NORMAL_MAP,
   RUT_ASSET_TYPE_ALPHA_MASK,
   RUT_ASSET_TYPE_PLY_MODEL,
+  RUT_ASSET_TYPE_VIDEO,
 } RutAssetType;
 
 extern RutType rut_asset_type;
@@ -39,6 +41,12 @@ rut_asset_new_alpha_mask (RutContext *ctx,
 RutAsset *
 rut_asset_new_ply_model (RutContext *ctx,
                          const char *path);
+                         
+RutAsset *
+rut_asset_new_video (RutContext *ctx,
+                     const char *path,
+                     GCallback cb,
+                     gpointer user_data);
 
 RutAsset *
 rut_asset_new_from_data (RutContext *ctx,

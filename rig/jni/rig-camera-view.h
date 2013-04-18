@@ -37,4 +37,8 @@ void
 rig_camera_view_set_scene (RigCameraView *view,
                            RutGraph *scene);
 
+void
+rig_camera_view_set_play_camera (RigCameraView *view,
+                                 RutEntity *play_camera);
+
 #endif /* _RIG_CAMERA_VIEW_H_ */

@@ -401,6 +401,7 @@ rut_bin_set_child (RutBin *bin,
     }
 
   preferred_size_changed (bin);
+  rut_shell_queue_redraw (bin->context->shell);
 }
 
 void
