@@ -621,28 +621,66 @@ rig_prepare_pointalism_pipeline (gpointer instace,
   CoglSnippet *snippet;
   RutEntity *entity = (RutEntity*) user_data;
   RutMaterial *material;
+  RutComponent *geometry;
   int location, free_layer, i;
   CoglDepthState depth_state[2];
+  CoglTexture *shape_texture;
+  CoglBool has_shape = FALSE;
 
   material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
+  geometry = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_GEOMETRY);
   for (i = 0; i < 3; i++)
     pln[i] = cogl_pipeline_copy (cogl_gst_video_sink_get_pipeline (material->sink));
 
   cogl_depth_state_init (&depth_state[0]);
   cogl_depth_state_init (&depth_state[1]);
-  
+
   cogl_depth_state_set_test_enabled (&depth_state[0], TRUE);
   cogl_depth_state_set_write_enabled (&depth_state[0], TRUE);
   cogl_pipeline_set_depth_state (pln[1], &depth_state[0], NULL);
   cogl_pipeline_set_depth_state (pln[2], &depth_state[0], NULL);
-  
+
   cogl_depth_state_set_test_enabled (&depth_state[1], TRUE);
   cogl_depth_state_set_write_enabled (&depth_state[1], FALSE);
   cogl_pipeline_set_depth_state (pln[0], &depth_state[1], NULL);
 
   free_layer = cogl_gst_video_sink_get_free_layer (material->sink);
-                                   
-  snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX_TRANSFORM, 
+
+  if (rut_object_get_type (geometry) == &rut_shape_type)
+    {
+      if (rut_shape_get_shaped (RUT_SHAPE (geometry)))
+        {
+          shape_texture = rut_shape_get_shape_texture (RUT_SHAPE (geometry));
+          has_shape = TRUE;
+
+          snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+            "uniform sampler2D shape;\n",
+            NULL
+          );
+
+          cogl_snippet_set_replace (snippet,
+            "cogl_color_out = cogl_gst_sample_video (cogl_tex_coord0_in.st);\n"
+            "cogl_color_out *= texture2D (shape, cogl_tex_coord0_in.st);\n"
+          );
+
+          cogl_pipeline_add_snippet (pln[2], snippet);
+          cogl_object_unref (snippet);
+
+          shape_texture =
+            rut_shape_get_shape_texture (RUT_SHAPE (geometry));
+          cogl_pipeline_set_layer_texture (pln[2], free_layer, shape_texture);
+
+          location = cogl_pipeline_get_uniform_location (pln[2],"shape");
+          cogl_pipeline_set_uniform_1i (pln[2], location, free_layer);
+        }
+
+      rut_shape_add_reshaped_callback (RUT_SHAPE (geometry),
+                                       reshape_cb,
+                                       NULL,
+                                       NULL);
+    }
+
+  snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX_TRANSFORM,
     "attribute vec2 cell_xy;\n"
     "attribute vec4 cell_st;\n"
     "uniform float scale_factor;\n"
@@ -652,7 +690,7 @@ rig_prepare_pointalism_pipeline (gpointer instace,
     "varying vec4 tex_coord_out;\n",
     NULL
   );
-  
+
   cogl_snippet_set_replace (snippet,
     "vec4 pos = cogl_position_in;\n"
     "float grey;\n"
@@ -662,7 +700,7 @@ rig_prepare_pointalism_pipeline (gpointer instace,
     "av_color += cogl_gst_sample_video (vec2 (cell_st.y, cell_st.w));\n"
     "av_color += cogl_gst_sample_video (vec2 (cell_st.x, cell_st.w));\n"
     "av_color /= 4.0;\n"
- 
+
     "grey = av_color.r * 0.2126 + av_color.g * 0.7152 + av_color.b * 0.0722;\n"
 
     "if (anti_scale == 1)\n"
@@ -679,67 +717,114 @@ rig_prepare_pointalism_pipeline (gpointer instace,
   cogl_pipeline_add_snippet (pln[0], snippet);
   cogl_pipeline_add_snippet (pln[1], snippet);
   cogl_object_unref (snippet);
-  
-  snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
-    "uniform sampler2D circle;\n"
-    "varying vec4 av_color;\n"
-    "varying vec4 tex_coord_out;\n",
-  NULL
-  );
-  
-  cogl_snippet_set_replace (snippet,
-    "cogl_color_out = av_color;\n" 
-    "cogl_color_out = av_color * texture2D (circle, tex_coord_out.st);\n"
-    "cogl_color_out.a = texture2D (circle, tex_coord_out.st).a;\n"
-    "if (cogl_color_out.a  > 0.90 || cogl_color_out.a == 0.0)\n"
-    "discard;\n"
-  );
-  
+
+  if (!has_shape)
+    {
+      snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+        "uniform sampler2D circle;\n"
+        "varying vec4 av_color;\n"
+        "varying vec4 tex_coord_out;\n",
+        NULL
+      );
+
+      cogl_snippet_set_replace (snippet,
+        "cogl_color_out = av_color;\n"
+        "cogl_color_out *= texture2D (circle, tex_coord_out.st);\n"
+        "if (cogl_color_out.a  > 0.90 || cogl_color_out.a == 0.0)\n"
+        "discard;\n"
+      );
+    }
+  else
+    {
+      snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+        "uniform sampler2D circle, shape;\n"
+        "varying vec4 av_color;\n"
+        "varying vec4 tex_coord_out;\n",
+        NULL
+      );
+
+      cogl_snippet_set_replace (snippet,
+        "vec4 shape = texture2D (shape,  cogl_tex_coord1_in.st);\n"
+        "cogl_color_out = av_color;\n"
+        "cogl_color_out *= texture2D (circle, tex_coord_out.st);\n"
+        "cogl_color_out *= shape;\n"
+        "if (cogl_color_out.a  > 0.90 || cogl_color_out.a == 0.0)\n"
+        "discard;\n"
+      );
+    }
+
   cogl_pipeline_add_snippet (pln[0], snippet);
   cogl_object_unref (snippet);
-  
-  snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
-    "uniform sampler2D circle;\n"
-    "varying vec4 av_color;\n"
-    "varying vec4 tex_coord_out;\n",
-    NULL
-  );
-  
-  cogl_snippet_set_replace (snippet,
-    "cogl_color_out = av_color;\n" 
-    "cogl_color_out = av_color * texture2D (circle, tex_coord_out.st);\n"
-    "cogl_color_out.a = texture2D (circle, tex_coord_out.st).a;\n"
-    "if (cogl_color_out.a  < 0.90)\n"
-    "discard;\n"
-  );
-  
+
+  if (!has_shape)
+    {
+      snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+        "uniform sampler2D circle;\n"
+        "varying vec4 av_color;\n"
+        "varying vec4 tex_coord_out;\n",
+        NULL
+      );
+
+      cogl_snippet_set_replace (snippet,
+        "cogl_color_out = av_color;\n"
+        "cogl_color_out *= texture2D (circle, tex_coord_out.st);\n"
+        "if (cogl_color_out.a  < 0.90)\n"
+        "discard;\n"
+      );
+    }
+  else
+    {
+      snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+        "uniform sampler2D circle, shape;\n"
+        "varying vec4 av_color;\n"
+        "varying vec4 tex_coord_out;\n",
+        NULL
+      );
+
+      cogl_snippet_set_replace (snippet,
+        "vec4 shape = texture2D (shape,  cogl_tex_coord1_in.st);\n"
+        "cogl_color_out = av_color;\n"
+        "cogl_color_out = av_color * texture2D (circle, tex_coord_out.st);\n"
+        "cogl_color_out *= shape;\n"
+        "if (cogl_color_out.a  < 0.90)\n"
+        "discard;\n"
+      );
+    }
+
   cogl_pipeline_add_snippet (pln[1], snippet);
   cogl_object_unref (snippet);
-  
+
   for (i = 0; i < 2; i++)
     {
-      cogl_pipeline_set_layer_texture (pln[i], free_layer, 
+      cogl_pipeline_set_layer_texture (pln[i], free_layer,
                                        material->circle_shape);
       location = cogl_pipeline_get_uniform_location (pln[i],"circle");
       cogl_pipeline_set_uniform_1i (pln[i], location, free_layer);
-  
+
       location = cogl_pipeline_get_uniform_location (pln[i],"scale_factor");
       cogl_pipeline_set_uniform_1f (pln[i], location, material->pointalism_scale);
-  
+
       location = cogl_pipeline_get_uniform_location (pln[i], "z_trans");
-      cogl_pipeline_set_uniform_1f (pln[i], location, material->pointalism_z); 
+      cogl_pipeline_set_uniform_1f (pln[i], location, material->pointalism_z);
 
       location = cogl_pipeline_get_uniform_location (pln[i], "anti_scale");
       cogl_pipeline_set_uniform_1i (pln[i], location, 1);
-  
-      cogl_pipeline_set_layer_filters (pln[i], free_layer, 
+
+      if (has_shape)
+        {
+          cogl_pipeline_set_layer_texture (pln[i], free_layer, shape_texture);
+          location = cogl_pipeline_get_uniform_location (pln[i], "shape");
+          cogl_pipeline_set_uniform_1i (pln[i], location, free_layer);
+        }
+
+      cogl_pipeline_set_layer_filters (pln[i], free_layer,
                                       COGL_PIPELINE_FILTER_LINEAR_MIPMAP_LINEAR,
                                       COGL_PIPELINE_FILTER_LINEAR);
     }
 
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO, pln[0]);
   rut_entity_set_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE, pln[1]);
-  rut_entity_set_pipeline_cache (entity, CACHE_SLOT_VIDEO, pln[2]); 
+  rut_entity_set_pipeline_cache (entity, CACHE_SLOT_VIDEO, pln[2]);
 }
 
 static CoglPipeline *
@@ -752,20 +837,19 @@ get_entity_video_pipeline (RigEngine *engine,
   int location;
 
   material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
-  
+
   if (material->pointalism_on)
-    {  
+    {
       halo = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO);
       opaque = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE);
-          
+
       cogl_gst_video_sink_attach_frame (material->sink, halo);
       cogl_gst_video_sink_attach_frame (material->sink, opaque);
-          
+
       location = cogl_pipeline_get_uniform_location (halo,"scale_factor");
       cogl_pipeline_set_uniform_1f (halo, location, material->pointalism_scale);
       location = cogl_pipeline_get_uniform_location (halo, "z_trans");
       cogl_pipeline_set_uniform_1f (halo, location, material->pointalism_z);
-          
       location = cogl_pipeline_get_uniform_location (opaque,"scale_factor");
       cogl_pipeline_set_uniform_1f (opaque, location, material->pointalism_scale);
       location = cogl_pipeline_get_uniform_location (opaque, "z_trans");
@@ -777,7 +861,7 @@ get_entity_video_pipeline (RigEngine *engine,
       pln = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_VIDEO);
       cogl_gst_video_sink_attach_frame (material->sink, pln);
     }
-    
+
   return pln;
 }
 
@@ -1097,9 +1181,9 @@ rig_journal_flush (GArray *journal,
       float normal_matrix[9];
       RutMaterial *material;
       CoglBool is_video = FALSE;
-      
+
       material = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_MATERIAL);
-      
+
       if (material)
         {
           if (rut_material_get_video_texture_asset (material))
@@ -1111,7 +1195,7 @@ rig_journal_flush (GArray *journal,
               is_video = TRUE;
             }
           else
-            {      
+            {
               pipeline = get_entity_pipeline (paint_ctx->engine,
                                               entity,
                                               geometry,
@@ -1183,30 +1267,29 @@ rig_journal_flush (GArray *journal,
               if (paint_ctx->pass == RIG_PASS_COLOR_BLENDED)
                 {
                   pipeline = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_OPAQUE);
-                  cogl_framebuffer_draw_indexed_attributes (fb, pipeline, 
+                  cogl_framebuffer_draw_indexed_attributes (fb, pipeline,
                                                             COGL_VERTICES_MODE_TRIANGLES,
-                                                            0, material->video_renderer->grid->num_polygons 
+                                                            0, material->video_renderer->grid->num_polygons
                                                             * 3, material->video_renderer->indices,
-                                                            material->video_renderer->attributes, 4);
+                                                            material->video_renderer->attributes, 5);
                 }
               else if (paint_ctx->pass == RIG_PASS_COLOR_UNBLENDED)
                 {
                   pipeline = rut_entity_get_pipeline_cache (entity, CACHE_SLOT_POINTALISM_HALO);
-                  cogl_framebuffer_draw_indexed_attributes (fb, pipeline, 
+                  cogl_framebuffer_draw_indexed_attributes (fb, pipeline,
                                                             COGL_VERTICES_MODE_TRIANGLES,
-                                                            0, material->video_renderer->grid->num_polygons 
+                                                            0, material->video_renderer->grid->num_polygons
                                                             * 3, material->video_renderer->indices,
-                                                            material->video_renderer->attributes, 4);
+                                                            material->video_renderer->attributes, 5);
                 }
             }
           else if (paint_ctx->pass == RIG_PASS_COLOR_BLENDED)
             {
-              cogl_framebuffer_draw_textured_rectangle (fb, pipeline, -100, 
-                                                        -75, 100, 75, 0, 0, 1, 
-                                                        1); 
+              primitive = rut_primable_get_primitive (geometry);
+              cogl_framebuffer_draw_primitive (fb, pipeline, primitive);
             }
         }
-      
+
       if (!is_video)
         cogl_object_unref (pipeline);
 

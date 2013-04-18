@@ -118,6 +118,31 @@ _rut_model_new (RutContext *ctx)
   return model;
 }
 
+static float
+calculate_magnitude (float x,
+                     float y,
+                     float z)
+{
+  return sqrt (x * x + y * y + z * z);
+}
+
+float
+calculate_dot_product (float *v1,
+                       float *v2)
+{
+  return (v1[0] * v2[0]) + (v1[1] * v2[1]) + (v1[2] * v2[2]);
+}
+
+static void
+normalize_vertex (float *vertex)
+{
+  float magnitude = calculate_magnitude (vertex[0], vertex[1], vertex[2]);
+
+  vertex[0] = vertex[0] / magnitude;
+  vertex[1] = vertex[1] / magnitude;
+  vertex[2] = vertex[2] / magnitude;
+}
+
 static CoglBool
 measure_mesh_x_cb (void **attribute_data,
                    int vertex_index,
@@ -159,6 +184,8 @@ measure_mesh_xyz_cb (void **attribute_data,
 {
   RutModel *model = user_data;
   float *pos = attribute_data[0];
+  float *normal = attribute_data[1];
+  float *tangent = attribute_data[2];
 
   measure_mesh_xy_cb (attribute_data, vertex_index, user_data);
 
@@ -166,6 +193,123 @@ measure_mesh_xyz_cb (void **attribute_data,
     model->min_z = pos[2];
   if (pos[2] > model->max_z)
     model->max_z = pos[2];
+
+  normal[0] = 0;
+  normal[1] = 0;
+  normal[2] = 0;
+
+  tangent[0] = 0;
+  tangent[1] = 0;
+  tangent[2] = 0;
+
+  return TRUE;
+}
+
+static CoglBool
+calculate_tangent_space (void **attribute_data_v0,
+                         void **attribute_data_v1,
+                         void **attribute_data_v2,
+                         int v0_index,
+                         int v1_index,
+                         int v2_index,
+                         void *user_data)
+{
+  float *vert_p0 = attribute_data_v0[0];
+  float *vert_p1 = attribute_data_v1[0];
+  float *vert_p2 = attribute_data_v2[0];
+
+  float *vert_n0 = attribute_data_v0[1];
+  float *vert_n1 = attribute_data_v1[1];
+  float *vert_n2 = attribute_data_v2[1];
+
+  float *vert_t0 = attribute_data_v0[2];
+  float *vert_t1 = attribute_data_v1[2];
+  float *vert_t2 = attribute_data_v2[2];
+
+  float *tex_coord0 = attribute_data_v0[3];
+  float *tex_coord1 = attribute_data_v1[3];
+  float *tex_coord2 = attribute_data_v2[3];
+
+  float edge1[3];
+  float edge2[3];
+  float tex_edge1[2];
+  float tex_edge2[2];
+  float poly_normal[3];
+  float poly_tangent[3];
+  float coef;
+  RutModel *model = user_data;
+  RutAttribute *att = rut_mesh_find_attribute (model->mesh,
+                                               "cogl_tex_coord0_in");
+
+  edge1[0] = vert_p1[0] - vert_p0[0];
+  edge1[1] = vert_p1[1] - vert_p0[1];
+  edge1[2] = vert_p1[2] - vert_p0[2];
+
+  edge2[0] = vert_p2[0] - vert_p0[0];
+  edge2[1] = vert_p2[1] - vert_p0[1];
+  edge2[2] = vert_p2[2] - vert_p0[2];
+
+  poly_normal[0] = (edge1[1] * edge2[2]) - (edge1[2] * edge2[1]);
+  poly_normal[1] = (edge1[2] * edge2[0]) - (edge1[0] * edge2[2]);
+  poly_normal[2] = (edge1[0] * edge2[1]) - (edge1[1] * edge2[0]);
+
+  normalize_vertex (poly_normal);
+
+  vert_n0[0] += poly_normal[0];
+  vert_n0[1] += poly_normal[1];
+  vert_n0[2] += poly_normal[2];
+
+  normalize_vertex (vert_n0);
+
+  vert_n1[0] += poly_normal[0];
+  vert_n1[1] += poly_normal[1];
+  vert_n1[2] += poly_normal[2];
+
+  normalize_vertex (vert_n1);
+
+  vert_n2[0] += poly_normal[0];
+  vert_n2[1] += poly_normal[1];
+  vert_n2[2] += poly_normal[2];
+
+  normalize_vertex (vert_n2);
+
+  if (!att)
+    return TRUE;
+
+  tex_edge1[0] = tex_coord1[0] - tex_coord0[0];
+  tex_edge1[1] = tex_coord1[1] - tex_coord0[1];
+
+  tex_edge2[0] = tex_coord2[0] - tex_coord0[0];
+  tex_edge2[1] = tex_coord2[1] - tex_coord0[1];
+
+  coef = 1 / (tex_edge1[0] * tex_edge2[1] - tex_edge2[0] * tex_edge1[1]);
+
+  poly_tangent[0] = coef * ((edge1[0] * tex_edge2[1]) -
+                            (edge2[0] * tex_edge1[1]));
+  poly_tangent[1] = coef * ((edge1[1] * tex_edge2[1]) -
+                            (edge2[1] * tex_edge1[1]));
+  poly_tangent[2] = coef * ((edge1[2] * tex_edge2[1]) -
+                            (edge2[2] * tex_edge1[1]));
+
+  normalize_vertex (poly_tangent);
+
+  vert_t0[0] += poly_tangent[0];
+  vert_t0[1] += poly_tangent[1];
+  vert_t0[2] += poly_tangent[2];
+
+  normalize_vertex (vert_t0);
+
+  vert_t1[0] += poly_tangent[0];
+  vert_t1[1] += poly_tangent[1];
+  vert_t1[2] += poly_tangent[2];
+
+  normalize_vertex (vert_t1);
+
+  vert_t2[0] += poly_tangent[0];
+  vert_t2[1] += poly_tangent[1];
+  vert_t2[2] += poly_tangent[2];
+
+  normalize_vertex (vert_t2);
 
   return TRUE;
 }
@@ -209,7 +353,18 @@ rut_model_new_from_mesh (RutContext *ctx,
                            measure_callback,
                            model,
                            "cogl_position_in",
+                           "cogl_normal_in",
+                           "tangent_in",
                            NULL);
+
+  rut_mesh_foreach_triangle (model->mesh,
+                             (RutMeshTriangleCallback) calculate_tangent_space,
+                             model,
+                             "cogl_position_in",
+                             "cogl_normal_in",
+                             "tanget_in",
+                             "cogl_tex_coord0_in",
+                             NULL);
 
   return model;
 }

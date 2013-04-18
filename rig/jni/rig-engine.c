@@ -1219,7 +1219,7 @@ static RutPLYAttribute ply_attributes[] =
     .min_components = 2,
   },
   {
-    .name = "tangent",
+    .name = "tangent_in",
     .properties = {
       { "tanx" },
       { "tany" },
@@ -2406,8 +2406,10 @@ rig_engine_init (RutShell *shell, void *user_data)
                                           engine->device_width / 2,
                                           engine->device_height / 2);
 
-  cogl_onscreen_add_resize_handler (engine->onscreen,
-                                    data_onscreen_resize, engine);
+  cogl_onscreen_add_resize_callback (engine->onscreen,
+                                     data_onscreen_resize,
+                                     engine,
+                                     NULL);
 
   cogl_framebuffer_allocate (COGL_FRAMEBUFFER (engine->onscreen), NULL);
 
