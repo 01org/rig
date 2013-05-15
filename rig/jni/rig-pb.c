@@ -1050,7 +1050,7 @@ pb_init_boxed_value (UnSerializer *unserializer,
       break;
 
     case RUT_PROPERTY_TYPE_TEXT:
-      boxed->d.text_val = pb_value->text_value;
+      boxed->d.text_val = g_strdup (pb_value->text_value);
       break;
 
     case RUT_PROPERTY_TYPE_QUATERNION:
@@ -1098,7 +1098,10 @@ collect_error (UnSerializer *unserializer,
    * realize that their document may be corrupt.
    */
 
-  g_logv (G_LOG_DOMAIN, G_LOG_LEVEL_CRITICAL, format, ap);
+  if (rut_util_is_boolean_env_set ("RUT_IGNORE_LOAD_ERRORS"))
+    g_logv (G_LOG_DOMAIN, G_LOG_LEVEL_WARNING, format, ap);
+  else
+    g_logv (G_LOG_DOMAIN, G_LOG_LEVEL_CRITICAL, format, ap);
 
   va_end (ap);
 }
@@ -1433,6 +1436,7 @@ unserialize_components (UnSerializer *unserializer,
             CoglTexture *texture = NULL;
             RutShape *shape;
             CoglBool shaped = FALSE;
+            int width, height;
 
             if (pb_shape->has_shaped)
               shaped = pb_shape->shaped;
@@ -1448,17 +1452,22 @@ unserialize_components (UnSerializer *unserializer,
             if (asset)
               texture = rut_asset_get_texture (asset);
 
-            if (!texture)
+            if (texture)
+              {
+                width = cogl_texture_get_width (texture);
+                height = cogl_texture_get_height (texture);
+              }
+            else
               {
                 collect_error (unserializer,
                                "Can't add shape component without a texture");
+                width = height = 100;
                 break;
               }
 
             shape = rut_shape_new (unserializer->engine->ctx,
                                    shaped,
-                                   cogl_texture_get_width (texture),
-                                   cogl_texture_get_height (texture));
+                                   width, height);
             rut_entity_add_component (entity, shape);
 
             register_unserializer_object (unserializer, shape, component_id);

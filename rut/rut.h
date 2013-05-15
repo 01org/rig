@@ -34,7 +34,6 @@
 #include "rut-paintable.h"
 #include "rut-color.h"
 #include "rut-asset.h"
-#include "rut-bevel.h"
 #include "rut-stack.h"
 #include "rut-entry.h"
 #include "rut-downsampler.h"
@@ -53,6 +52,7 @@
 #include "rut-button.h"
 #include "rut-fixed.h"
 #include "rut-fold.h"
+#include "rut-icon-button.h"
 
 /* entity/components system */
 #include "rut-entity.h"

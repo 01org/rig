@@ -43,7 +43,6 @@ source_h = \
     rut-prop-inspector.h \
     rut-closure.h \
     rut-asset.h \
-    rut-bevel.h \
     rut-stack.h \
     rut-entry.h \
     rut-gaussian-blurrer.h \
@@ -70,7 +69,8 @@ source_h = \
     rut-nine-slice.h \
     rut-fixed.h \
     rut-fold.h \
-    rut-refcount-debug.h
+    rut-refcount-debug.h \
+    rut-icon-burron.h
 
 librut_la_SOURCES = \
     components/rut-camera.c \
@@ -117,7 +117,6 @@ librut_la_SOURCES = \
     rut-prop-inspector.c \
     rut-closure.c \
     rut-asset.c \
-    rut-bevel.c \
     rut-stack.c \
     rut-entry.c \
     rut-gaussian-blurrer.c \
@@ -143,6 +142,7 @@ librut_la_SOURCES = \
     rut-fixed.c \
     rut-fold.c \
     rut-refcount-debug.c \
+    rut-icon-button.c \
     $(source_h)
 
 if !HAVE_ANDROID

@@ -999,3 +999,11 @@ rut_ui_viewport_set_sync_widget (RutObject *obj,
 
   rut_property_dirty (&ui_viewport->ctx->property_ctx, property);
 }
+
+void
+rut_ui_viewport_set_scroll_bar_color (RutUIViewport *ui_viewport,
+                                      const CoglColor *color)
+{
+  rut_scroll_bar_set_color (ui_viewport->scroll_bar_x, color);
+  rut_scroll_bar_set_color (ui_viewport->scroll_bar_y, color);
+}

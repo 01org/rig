@@ -121,4 +121,8 @@ void
 rut_ui_viewport_set_sync_widget (RutObject *ui_viewport,
                                  RutObject *widget);
 
+void
+rut_ui_viewport_set_scroll_bar_color (RutUIViewport *ui_viewport,
+                                      const CoglColor *color);
+
 #endif /* _RUT_UI_VIEWPORT_H_ */

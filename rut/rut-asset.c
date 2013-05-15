@@ -24,12 +24,14 @@
 
 #include <cogl/cogl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
+#include <math.h>
 
 #include "rut-context.h"
 #include "rut-interfaces.h"
 #include "rut-asset.h"
 #include "rut-util.h"
 #include "rut-mesh-ply.h"
+#include "components/rut-model.h"
 
 #if 0
 enum {
@@ -153,9 +155,47 @@ static RutPLYAttribute ply_attributes[] =
     },
     .n_properties = 3,
     .min_components = 2,
+    .pad_n_components = 3,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
   },
   {
-    .name = "tangent",
+    .name = "cogl_tex_coord1_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 3,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "cogl_tex_coord2_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 3,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "cogl_tex_coord5_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 3,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "tangent_in",
     .properties = {
       { "tanx" },
       { "tany" },
@@ -179,6 +219,188 @@ static RutPLYAttribute ply_attributes[] =
     .min_components = 3,
   }
 };
+
+static CoglTexture *
+rut_model_get_thumbnail (RutContext *ctx,
+                         RutModel *model)
+{
+  RutMesh *mesh;
+  CoglTexture *thumbnail;
+  CoglOffscreen *offscreen;
+  CoglFramebuffer *frame_buffer;
+  CoglPipeline *pipeline;
+  CoglPrimitive *primitive;
+  CoglSnippet *snippet;
+  CoglDepthState depth_state;
+  CoglMatrix view;
+  int tex_width = 800;
+  int tex_height = 800;
+  float fovy = 60;
+  float aspect = (float)tex_width / (float)tex_height;
+  float z_near = 0.1;
+  float z_2d = 1000;
+  float z_far = 2000;
+  float translate_x = 0;
+  float translate_y = 0;
+  float translate_z = 0;
+  float rec_scale = 300;
+  float scale_facor = 1;
+  float model_scale;
+  float width = model->max_x - model->min_x;
+  float height = model->max_y - model->min_y;
+  float length = model->max_z - model->min_z;
+  float light_pos[3] = { model->max_x, model->max_y, model->max_z};
+  float light_amb[4] = { 0.2, 0.2, 0.2, 1.0 };
+  float light_diff[4] = { 0.5, 0.5, 0.5, 1.0 };
+  float light_spec[4] = { 0.5, 0.5, 0.5, 1.0 };
+  float mat_amb[4] = { 0.2, 0.2, 0.2, 1.0 };
+  float mat_diff[4] = { 0.5, 0.5, 0.5, 1.0};
+  float mat_spec[4] = {0.5, 0.5, 0.5, 1.0};
+  int location;
+
+  mesh = rut_model_get_mesh (model);
+
+  thumbnail = cogl_texture_new_with_size (ctx->cogl_context,
+                                          tex_width,
+                                          tex_height,
+                                          COGL_TEXTURE_NONE,
+                                          COGL_PIXEL_FORMAT_RGBA_8888);
+
+  offscreen = cogl_offscreen_new_to_texture (thumbnail);
+  frame_buffer = COGL_FRAMEBUFFER (offscreen);
+
+  cogl_framebuffer_perspective (frame_buffer, fovy, aspect, z_near, z_far);
+  cogl_matrix_init_identity (&view);
+  cogl_matrix_view_2d_in_perspective (&view, fovy, aspect, z_near, z_2d,
+                                      tex_width, tex_height);
+  cogl_framebuffer_set_modelview_matrix (frame_buffer, &view);
+
+  pipeline = cogl_pipeline_new (ctx->cogl_context);
+
+  snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_VERTEX,
+           "attribute vec3 tangent_in;\n"
+           "attribute vec2 cogl_tex_coord0_in;\n"
+           "attribute vec2 cogl_tex_coord1_in;\n"
+           "attribute vec2 cogl_tex_coord2_in;\n"
+           "attribute vec2 cogl_tex_coord5_in;\n"
+           "uniform vec3 light_pos;\n"
+           "uniform vec4 light_amb;\n"
+           "uniform vec4 light_diff;\n"
+           "uniform vec4 light_spec;\n"
+           "uniform vec4 mat_amb;\n"
+           "uniform vec4 mat_diff;\n"
+           "uniform vec4 mat_spec;\n"
+           "varying vec3 trans_light;\n"
+           "varying vec3 eye;\n"
+           "varying vec3 normal;\n",
+           "normal = vec3 (normalize (cogl_modelview_matrix * \
+                                      vec4 (cogl_normal_in.x, cogl_normal_in.y,\
+                                      cogl_normal_in.z, 1.0)));\n"
+           "eye = -vec3 (cogl_modelview_matrix * cogl_position_in);\n"
+           "trans_light = vec3 (normalize (cogl_modelview_matrix *\
+                                           vec4 (light_pos.x, light_pos.y,\
+                                           light_pos.z, 1.0)));\n"
+           );
+
+  cogl_pipeline_add_snippet (pipeline, snippet);
+  cogl_object_unref (snippet);
+
+  snippet = cogl_snippet_new (COGL_SNIPPET_HOOK_FRAGMENT,
+                              "uniform vec3 light_pos;\n"
+                              "uniform vec4 light_amb;\n"
+                              "uniform vec4 light_diff;\n"
+                              "uniform vec4 light_spec;\n"
+                              "uniform vec4 mat_amb;\n"
+                              "uniform vec4 mat_diff;\n"
+                              "uniform vec4 mat_spec;\n"
+                              "varying vec3 trans_light;\n"
+                              "varying vec3 eye;\n"
+                              "varying vec3 normal;\n",
+                              "vec4 final_color;\n"
+                              "vec3 L = normalize (trans_light);\n"
+                              "vec3 N = normalize (normal);\n"
+                              "vec4 ambient = light_amb * mat_amb;\n"
+                              "float lambert = dot (N, L);\n"
+                              "if (lambert > 0.0)\n"
+                              "{\n"
+                              "vec4 diffuse = light_diff * mat_diff;\n"
+                              "vec4 spec = light_spec * mat_spec;\n"
+                              "final_color = ambient;\n"
+                              "final_color += diffuse * lambert;\n"
+                              "vec3 E = normalize (eye);\n"
+                              "vec3 R = reflect (-L, N);\n"
+                              "float spec_factor = pow (max (dot (R, E), 0.0),\
+                                                        1000.0);\n"
+                              "final_color += spec * spec_factor;\n"
+                              "}\n"
+                              "cogl_color_out = final_color;\n"
+                              );
+
+  cogl_pipeline_add_snippet (pipeline, snippet);
+  cogl_object_unref (snippet);
+
+  location = cogl_pipeline_get_uniform_location (pipeline, "light_pos");
+  cogl_pipeline_set_uniform_float (pipeline, location, 3, 1, light_pos);
+  location = cogl_pipeline_get_uniform_location (pipeline, "light_amb");
+  cogl_pipeline_set_uniform_float (pipeline, location, 4, 1, light_amb);
+  location = cogl_pipeline_get_uniform_location (pipeline, "light_diff");
+  cogl_pipeline_set_uniform_float (pipeline, location, 4, 1, light_diff);
+  location = cogl_pipeline_get_uniform_location (pipeline, "light_spec");
+  cogl_pipeline_set_uniform_float (pipeline, location, 4, 1, light_spec);
+  location = cogl_pipeline_get_uniform_location (pipeline, "mat_amb");
+  cogl_pipeline_set_uniform_float (pipeline, location, 4, 1, mat_amb);
+  location = cogl_pipeline_get_uniform_location (pipeline, "mat_diff");
+  cogl_pipeline_set_uniform_float (pipeline, location, 4, 1, mat_diff);
+  location = cogl_pipeline_get_uniform_location (pipeline, "mat_spec");
+  cogl_pipeline_set_uniform_float (pipeline, location, 4, 1, mat_spec);
+
+  cogl_depth_state_init (&depth_state);
+  cogl_depth_state_set_test_enabled (&depth_state, TRUE);
+  cogl_pipeline_set_depth_state (pipeline, &depth_state, NULL);
+
+  primitive = rut_mesh_create_primitive (ctx, mesh);
+
+  if (width > height)
+    model_scale = width;
+  else
+    model_scale = height;
+
+  if (rec_scale > model_scale)
+    scale_facor = rec_scale / model_scale;
+
+  if (model->max_x < 0)
+    translate_x = -1 * (width * 0.5) - model->min_x;
+  else if (model->min_x > 0)
+    translate_x = model->min_x - (-1 * (width * 0.5));
+
+  if (model->max_y < 0)
+    translate_y = -1 * (height * 0.5) - model->min_y;
+  else if (model->min_y > 0)
+    translate_y = model->min_y - (-1 * (height * 0.5));
+
+  if (model->max_z < 0)
+    translate_z = -1 * (length * 0.5) - model->min_z;
+  else if (model->min_z > 0)
+    translate_z = model->min_z - (-1 * (length * 0.5));
+
+  cogl_framebuffer_clear4f (frame_buffer,
+                            COGL_BUFFER_BIT_COLOR|COGL_BUFFER_BIT_DEPTH,
+                            0, 0, 0, 0);
+
+  cogl_framebuffer_translate (frame_buffer, tex_width / 2.0, tex_height / 2.0,
+                              0);
+  cogl_framebuffer_push_matrix (frame_buffer);
+  cogl_framebuffer_translate (frame_buffer, translate_x, translate_y, translate_z);
+  cogl_framebuffer_scale (frame_buffer, scale_facor, scale_facor, scale_facor);
+  cogl_framebuffer_draw_primitive (frame_buffer, pipeline, primitive);
+  cogl_framebuffer_pop_matrix (frame_buffer);
+
+  cogl_object_unref (primitive);
+  cogl_object_unref (pipeline);
+  cogl_object_unref (frame_buffer);
+
+  return thumbnail;
+}
 
 static RutAsset *
 rut_asset_new_full (RutContext *ctx,
@@ -235,6 +457,7 @@ rut_asset_new_full (RutContext *ctx,
       {
         RutPLYAttributeStatus padding_status[G_N_ELEMENTS (ply_attributes)];
         GError *error = NULL;
+        RutModel *model;
 
         asset->mesh = rut_mesh_new_from_ply (ctx,
                                              real_path,
@@ -242,6 +465,7 @@ rut_asset_new_full (RutContext *ctx,
                                              G_N_ELEMENTS (ply_attributes),
                                              padding_status,
                                              &error);
+
         if (!asset->mesh)
           {
             g_slice_free (RutAsset, asset);
@@ -250,6 +474,9 @@ rut_asset_new_full (RutContext *ctx,
             asset = NULL;
             goto DONE;
           }
+
+        model = rut_model_new_from_mesh (ctx, asset->mesh);
+        asset->texture = rut_model_get_thumbnail (ctx, model);
 
         break;
       }
@@ -613,6 +840,10 @@ rut_infer_asset_tags (RutContext *ctx, GFileInfo *info, GFile *asset_file)
         g_list_prepend (inferred_tags, (char *)g_intern_string ("mesh"));
       inferred_tags =
         g_list_prepend (inferred_tags, (char *)g_intern_string ("model"));
+      inferred_tags =
+        g_list_prepend (inferred_tags, (char *)g_intern_string ("geometry"));
+      inferred_tags =
+        g_list_prepend (inferred_tags, (char *)g_intern_string ("geom"));
     }
   g_free (basename);
 
