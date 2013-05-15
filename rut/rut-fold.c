@@ -226,6 +226,7 @@ rut_fold_new (RutContext *ctx,
   RutBin *label_bin;
   RutBin *fold_icon_align;
   CoglTexture *texture;
+  CoglColor black;
 
   if (initialized == FALSE)
     {
@@ -293,7 +294,9 @@ rut_fold_new (RutContext *ctx,
   rut_bin_set_child (label_bin, fold->label);
   rut_refable_unref (fold->label);
 
-  rut_fold_set_color_u32 (fold, 0x000000ff);
+  cogl_color_init_from_4f (&black, 0, 0, 0, 1);
+  rut_fold_set_folder_color (fold, &black);
+  rut_fold_set_label_color (fold, &black);
 
   rut_graphable_add_child (fold, fold->vbox);
   rut_refable_unref (fold->vbox);
@@ -354,16 +357,24 @@ rut_fold_set_folded (RutFold *fold, CoglBool folded)
 }
 
 void
-rut_fold_set_color_u32 (RutFold *fold, uint32_t color_u32)
+rut_fold_set_folder_color (RutFold *fold, const CoglColor *color)
 {
-  CoglColor color;
   CoglPipeline *pipeline;
 
-  rut_color_init_from_uint32 (&color, color_u32);
   pipeline = rut_nine_slice_get_pipeline (fold->fold_up_icon);
-  cogl_pipeline_set_color (pipeline, &color);
+  cogl_pipeline_set_color (pipeline, color);
   pipeline = rut_nine_slice_get_pipeline (fold->fold_down_icon);
-  cogl_pipeline_set_color (pipeline, &color);
+  cogl_pipeline_set_color (pipeline, color);
+}
 
-  rut_text_set_color_u32 (fold->label, color_u32);
+void
+rut_fold_set_label_color (RutFold *fold, const CoglColor *color)
+{
+  rut_text_set_color (fold->label, color);
+}
+
+void
+rut_fold_set_font_name (RutFold *fold, const char *font)
+{
+  rut_text_set_font_name (fold->label, font);
 }

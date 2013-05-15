@@ -31,7 +31,7 @@ _diamond_slice_free (void *object)
 {
   RutDiamondSlice *diamond_slice = object;
 
-  cogl_object_unref (diamond_slice->primitive);
+  rut_refable_unref (diamond_slice->mesh);
 
   g_slice_free (RutDiamondSlice, object);
 }
@@ -57,105 +57,88 @@ _rut_diamond_slice_init_type (void)
 typedef struct _VertexP2T2T2
 {
   float x, y, s0, t0, s1, t1;
-#ifdef MESA_CONST_ATTRIB_BUG_WORKAROUND
   float Nx, Ny, Nz;
   float Tx, Ty, Tz;
-#endif
 } VertexP2T2T2;
 
-static CoglPrimitive *
-primitive_new_p2t2t2 (CoglContext *ctx,
-                      CoglVerticesMode mode,
-                      int n_vertices,
-                      const VertexP2T2T2 *data)
+static RutMesh *
+mesh_new_p2t2t2 (CoglVerticesMode mode,
+                 int n_vertices,
+                 VertexP2T2T2 *vertices)
 {
-  CoglAttributeBuffer *attribute_buffer =
-    cogl_attribute_buffer_new (ctx, n_vertices * sizeof (VertexP2T2T2), data);
-  int n_attributes = 7;
-  CoglAttribute *attributes[n_attributes];
-  CoglPrimitive *primitive;
-#ifndef MESA_CONST_ATTRIB_BUG_WORKAROUND
-  const float normal[3] = { 0, 0, 1 };
-  const float tangent[3] = { 1, 0, 0 };
-#endif
-  int i;
+  RutMesh *mesh;
+  RutAttribute *attributes[7];
+  RutBuffer *vertex_buffer;
+  RutBuffer *index_buffer;
 
-  attributes[0] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_position_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, x),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
+  vertex_buffer = rut_buffer_new (sizeof (VertexP2T2T2) * n_vertices);
+  memcpy (vertex_buffer->data, vertices, sizeof (VertexP2T2T2) * n_vertices);
+  index_buffer = rut_buffer_new (sizeof (_rut_nine_slice_indices_data));
+  memcpy (index_buffer->data, _rut_nine_slice_indices_data,
+          sizeof (_rut_nine_slice_indices_data));
 
-  /* coords for circle mask, for rounded corners */
-  attributes[1] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord0_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s0),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  /* coords for primary texture */
-  attributes[2] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord1_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s1),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  /* coords for alpha mask texture */
-  attributes[3] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord2_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s1),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
+  attributes[0] = rut_attribute_new (vertex_buffer,
+                                     "cogl_position_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, x),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  /* coords for normal map */
-  attributes[4] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord5_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s1),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
+  attributes[1] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord0_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s0),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-#ifdef MESA_CONST_ATTRIB_BUG_WORKAROUND
-  attributes[5] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_normal_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, Nx),
-                                      3,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  attributes[6] = cogl_attribute_new (attribute_buffer,
-                                      "tangent_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, Tx),
-                                      3,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-#else
-  attributes[5] = cogl_attribute_new_const_3fv (ctx,
-                                                "cogl_normal_in",
-                                                normal);
+  attributes[2] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord1_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  attributes[6] = cogl_attribute_new_const_3fv (ctx,
-                                                "tangent_in",
-                                                tangent);
-#endif
+  attributes[3] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord4_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  cogl_object_unref (attribute_buffer);
+  attributes[4] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord7_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  primitive = cogl_primitive_new_with_attributes (mode,
-                                                  n_vertices,
-                                                  attributes,
-                                                  n_attributes);
 
-  for (i = 0; i < n_attributes; i++)
-    cogl_object_unref (attributes[i]);
+  attributes[5] = rut_attribute_new (vertex_buffer,
+                                     "cogl_normal_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, Nx),
+                                     3,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  return primitive;
+  attributes[6] = rut_attribute_new (vertex_buffer,
+                                     "tangent_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, Tx),
+                                     3,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
+
+  mesh = rut_mesh_new (mode, n_vertices, attributes, 7);
+  rut_mesh_set_indices (mesh,
+                        COGL_INDICES_TYPE_UNSIGNED_BYTE,
+                        index_buffer,
+                        sizeof (_rut_nine_slice_indices_data) /
+                        sizeof (_rut_nine_slice_indices_data[0]));
+
+  return mesh;
 }
 
 static RutDiamondSlice *
-diamond_slice_new (RutContext *ctx,
-                   float size,
+diamond_slice_new (float size,
                    int tex_width,
                    int tex_height)
 {
@@ -246,7 +229,6 @@ diamond_slice_new (RutContext *ctx,
                                        &z,
                                        &w);
 
-#ifdef MESA_CONST_ATTRIB_BUG_WORKAROUND
           vertices[i].Nx = 0;
           vertices[i].Ny = 0;
           vertices[i].Nz = 1;
@@ -254,7 +236,6 @@ diamond_slice_new (RutContext *ctx,
           vertices[i].Tx = 1;
           vertices[i].Ty = 0;
           vertices[i].Tz = 0;
-#endif
         }
 
       cogl_matrix_init_identity (&matrix);
@@ -300,21 +281,9 @@ diamond_slice_new (RutContext *ctx,
                                        &w);
         }
 
+      diamond_slice->mesh = mesh_new_p2t2t2 (COGL_VERTICES_MODE_TRIANGLES,
+                                             n_vertices, vertices);
 
-      diamond_slice->primitive =
-        primitive_new_p2t2t2 (ctx->cogl_context,
-                              COGL_VERTICES_MODE_TRIANGLES,
-                              n_vertices,
-                              vertices);
-
-      /* The vertices uploaded only map to the key intersection points of the
-       * 9-slice grid which isn't a topology that GPUs can handle directly so
-       * this specifies an array of indices that allow the GPU to interpret the
-       * vertices as a list of triangles... */
-      cogl_primitive_set_indices (diamond_slice->primitive,
-                                  ctx->nine_slice_indices,
-                                  sizeof (_rut_nine_slice_indices_data) /
-                                  sizeof (_rut_nine_slice_indices_data[0]));
     }
 
   return diamond_slice;
@@ -398,7 +367,7 @@ rut_diamond_new (RutContext *ctx,
 
   /* XXX: It could be worth maintaining a cache of diamond slices
    * indexed by the <size, tex_width, tex_height> tuple... */
-  diamond->slice = diamond_slice_new (ctx, size, tex_width, tex_height);
+  diamond->slice = diamond_slice_new (size, tex_width, tex_height);
 
   pick_vertices[0].x = 0;
   pick_vertices[0].y = 0;
@@ -434,7 +403,9 @@ CoglPrimitive *
 rut_diamond_get_primitive (RutObject *object)
 {
   RutDiamond *diamond = object;
-  return diamond->slice->primitive;
+  CoglPrimitive *primitive = rut_mesh_create_primitive (diamond->ctx,
+                                                        diamond->slice->mesh);
+  return primitive;
 }
 
 void

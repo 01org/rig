@@ -31,7 +31,7 @@
 #include "rut-number-slider.h"
 #include "rut-text.h"
 
-#define RUT_NUMBER_SLIDER_CORNER_HEIGHT 3
+#define RUT_NUMBER_SLIDER_CORNER_HEIGHT 60
 #define RUT_NUMBER_SLIDER_ARROW_WIDTH 8
 #define RUT_NUMBER_SLIDER_ARROW_HEIGHT \
   (16 - RUT_NUMBER_SLIDER_CORNER_HEIGHT * 2)
@@ -57,8 +57,7 @@ struct _RutNumberSlider
   RutGraphableProps graphable;
   RutPaintableProps paintable;
 
-  CoglPipeline *bg_pipeline;
-  CoglPipeline *selected_bg_pipeline;
+  RutNineSlice *background;
 
   char *name;
 
@@ -158,110 +157,6 @@ rut_number_slider_get_context_data (RutContext *context)
   return context_data;
 }
 
-static CoglPipeline *
-rut_number_slider_create_bg_pipeline (RutContext *context)
-{
-  RutNumberSliderContextData *context_data =
-    rut_number_slider_get_context_data (context);
-
-  /* The pipeline is cached so that if multiple sliders are created
-   * they will share a reference to the same pipeline */
-  if (context_data->bg_pipeline)
-    return cogl_object_ref (context_data->bg_pipeline);
-  else
-    {
-      CoglPipeline *pipeline = cogl_pipeline_new (context->cogl_context);
-      static CoglUserDataKey bg_pipeline_destroy_key;
-      CoglTexture *bg_texture;
-      GError *error = NULL;
-
-      bg_texture =
-        rut_load_texture_from_data_file (context,
-                                         "number-slider-background.png",
-                                         &error);
-      if (bg_texture)
-        {
-          const CoglPipelineWrapMode wrap_mode =
-            COGL_PIPELINE_WRAP_MODE_CLAMP_TO_EDGE;
-
-          cogl_pipeline_set_layer_texture (pipeline, 0, bg_texture);
-          cogl_pipeline_set_layer_wrap_mode (pipeline,
-                                             0, /* layer_index */
-                                             wrap_mode);
-          cogl_pipeline_set_layer_filters (pipeline,
-                                           0, /* layer_index */
-                                           COGL_PIPELINE_FILTER_NEAREST,
-                                           COGL_PIPELINE_FILTER_NEAREST);
-        }
-      else
-        {
-          g_warning ("Failed to load number-slider-background.png: %s",
-                     error->message);
-          g_error_free (error);
-        }
-
-      /* When the last slider is destroyed the pipeline will be
-       * destroyed and we'll set context->bg_pipeline to NULL
-       * so that it will be recreated for the next slider */
-      cogl_object_set_user_data (COGL_OBJECT (pipeline),
-                                 &bg_pipeline_destroy_key,
-                                 &context_data->bg_pipeline,
-                                 (CoglUserDataDestroyCallback)
-                                 g_nullify_pointer);
-
-      context_data->bg_pipeline = pipeline;
-
-      return pipeline;
-    }
-}
-
-static CoglPipeline *
-rut_number_slider_create_selected_bg_pipeline (RutContext *context)
-{
-  RutNumberSliderContextData *context_data =
-    rut_number_slider_get_context_data (context);
-
-  /* The pipeline is cached so that if multiple sliders are created
-   * they will share a reference to the same pipeline */
-  if (context_data->selected_bg_pipeline)
-    return cogl_object_ref (context_data->selected_bg_pipeline);
-  else
-    {
-      CoglPipeline *bg_pipeline =
-        rut_number_slider_create_bg_pipeline (context);
-      CoglPipeline *pipeline = cogl_pipeline_copy (bg_pipeline);
-      static CoglUserDataKey pipeline_destroy_key;
-
-      cogl_object_unref (bg_pipeline);
-
-      /* Invert the colours of the texture so that there is some
-       * obvious feedback when the button is pressed. */
-      /* What we want is 1-colour. However we want this to remain
-       * pre-multiplied so what we actually want is alpha×(1-colour) =
-       * alpha-alpha×colour. The texture is already premultiplied so
-       * the colour values are already alpha×colour and we just need
-       * to subtract it from the alpha value. */
-      cogl_pipeline_set_layer_combine (pipeline,
-                                       1, /* layer_number */
-                                       "RGB = SUBTRACT(PREVIOUS[A], PREVIOUS)"
-                                       "A = REPLACE(PREVIOUS[A])",
-                                       NULL);
-
-      /* When the last slider is destroyed the pipeline will be
-       * destroyed and we'll set context->selected_bg_pipeline to NULL
-       * so that it will be recreated for the next slider */
-      cogl_object_set_user_data (COGL_OBJECT (pipeline),
-                                 &pipeline_destroy_key,
-                                 &context_data->selected_bg_pipeline,
-                                 (CoglUserDataDestroyCallback)
-                                 g_nullify_pointer);
-
-      context_data->selected_bg_pipeline = pipeline;
-
-      return pipeline;
-    }
-}
-
 static void
 rut_number_slider_clear_layout (RutNumberSlider *slider)
 {
@@ -304,8 +199,7 @@ _rut_number_slider_free (void *object)
   rut_number_slider_remove_text (slider);
 
   rut_refable_unref (slider->context);
-  cogl_object_unref (slider->bg_pipeline);
-  cogl_object_unref (slider->selected_bg_pipeline);
+  rut_refable_unref (slider->background);
 
   g_free (slider->name);
 
@@ -442,101 +336,12 @@ _rut_number_slider_paint (RutObject *object,
   RutNumberSlider *slider = (RutNumberSlider *) object;
   RutCamera *camera = paint_ctx->camera;
   CoglFramebuffer *fb = rut_camera_get_framebuffer (camera);
-  RutNumberSliderRectangle coords[11];
-  int translation = slider->width - RUT_NUMBER_SLIDER_ARROW_WIDTH;
   CoglColor font_color;
-  CoglPipeline *pipeline;
-  int i;
 
-  /* Top left rounded corner */
-  coords[0].x1 = 0.0f;
-  coords[0].y1 = 0.0f;
-  coords[0].x2 = RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[0].y2 = RUT_NUMBER_SLIDER_CORNER_HEIGHT;
-  coords[0].s1 = 0.0f;
-  coords[0].t1 = 0.0f;
-  coords[0].s2 = 1.0f;
-  coords[0].t2 = RUT_NUMBER_SLIDER_CORNER_SIZE;
-
-  /* Stretched gap to top of arrow */
-  coords[1].x1 = 0.0f;
-  coords[1].y1 = RUT_NUMBER_SLIDER_CORNER_HEIGHT;
-  coords[1].x2 = RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[1].y2 = slider->height / 2 - RUT_NUMBER_SLIDER_ARROW_HEIGHT / 2;
-  /* Stetch the rightmost centre pixel to cover the entire rectangle */
-  coords[1].s1 = 1.0f;
-  coords[1].t1 = 0.5f;
-  coords[1].s2 = 1.0f;
-  coords[1].t2 = 0.5f;
-
-  /* Centre arrow */
-  coords[2].x1 = 0.0f;
-  coords[2].y1 = coords[1].y2;
-  coords[2].x2 = RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[2].y2 = coords[2].y1 + RUT_NUMBER_SLIDER_ARROW_HEIGHT;
-  coords[2].s1 = 0.0f;
-  coords[2].t1 = RUT_NUMBER_SLIDER_CORNER_SIZE;
-  coords[2].s2 = 1.0f;
-  coords[2].t2 = 1.0f - RUT_NUMBER_SLIDER_CORNER_SIZE;
-
-  /* Stretched gap to top of rounded corner */
-  coords[3].x1 = 0.0f;
-  coords[3].y1 = coords[2].y2;
-  coords[3].x2 = RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[3].y2 = slider->height - RUT_NUMBER_SLIDER_CORNER_HEIGHT;
-  /* Stetch the rightmost centre pixel to cover the entire rectangle */
-  coords[3].s1 = 1.0f;
-  coords[3].t1 = 0.5f;
-  coords[3].s2 = 1.0f;
-  coords[3].t2 = 0.5f;
-
-  /* Bottom rounded corner */
-  coords[4].x1 = 0.0f;
-  coords[4].y1 = coords[3].y2;
-  coords[4].x2 = RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[4].y2 = slider->height;
-  coords[4].s1 = 0.0f;
-  coords[4].t1 = 1.0f - RUT_NUMBER_SLIDER_CORNER_SIZE;
-  coords[4].s2 = 1.0f;
-  coords[4].t2 = 1.0f;
-
-  /* Centre rectangle */
-  coords[5].x1 = RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[5].y1 = 0.0f;
-  coords[5].x2 = slider->width - RUT_NUMBER_SLIDER_ARROW_WIDTH;
-  coords[5].y2 = slider->height;
-  /* Stetch the rightmost centre pixel to cover the entire rectangle */
-  coords[5].s1 = 1.0f;
-  coords[5].t1 = 0.5f;
-  coords[5].s2 = 1.0f;
-  coords[5].t2 = 0.5f;
-
-  /* The right hand side rectangles are just translated copies of the
-   * left hand side rectangles with flipped texture coordinates */
-  for (i = 0; i < 5; i++)
-    {
-      RutNumberSliderRectangle *out = coords + i + 6;
-      const RutNumberSliderRectangle *in = coords + i;
-
-      out->x1 = in->x1 + translation;
-      out->y1 = in->y1;
-      out->x2 = in->x2 + translation;
-      out->y2 = in->y2;
-      out->s1 = in->s2;
-      out->t1 = in->t1;
-      out->s2 = in->s1;
-      out->t2 = in->t2;
-    }
-
-  if (slider->button_down)
-    pipeline = slider->selected_bg_pipeline;
-  else
-    pipeline = slider->bg_pipeline;
-
-  cogl_framebuffer_draw_textured_rectangles (fb,
-                                             pipeline,
-                                             (float *) coords,
-                                             G_N_ELEMENTS (coords));
+  rut_nine_slice_set_size (slider->background,
+                           slider->width,
+                           slider->height);
+  rut_paintable_paint (slider->background, paint_ctx);
 
   if (slider->text == NULL)
     {
@@ -906,6 +711,7 @@ rut_number_slider_new (RutContext *context)
 {
   RutNumberSlider *slider = g_slice_new0 (RutNumberSlider);
   static CoglBool initialized = FALSE;
+  CoglTexture *bg_texture;
 
   if (initialized == FALSE)
     {
@@ -931,9 +737,16 @@ rut_number_slider_new (RutContext *context)
                                   _rut_number_slider_prop_specs,
                                   slider->properties);
 
-  slider->bg_pipeline = rut_number_slider_create_bg_pipeline (context);
-  slider->selected_bg_pipeline =
-    rut_number_slider_create_selected_bg_pipeline (context);
+  bg_texture =
+    rut_load_texture_from_data_file (context,
+                                     "number-slider-background.png",
+                                     NULL);
+
+  slider->background = rut_nine_slice_new (context,
+                                           bg_texture,
+                                           7, 7, 7, 7,
+                                           0, 0);
+  cogl_object_unref (bg_texture);
 
   slider->input_region =
     rut_input_region_new_rectangle (0, 0, 0, 0,

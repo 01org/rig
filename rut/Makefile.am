@@ -7,11 +7,13 @@ components_source_h = \
     components/rut-model.h \
     components/rut-material.h \
     components/rut-diamond.h \
-    components/rut-shape.h
+    components/rut-shape.h \
+    components/rut-pointalism-grid.h
 
 source_h = \
     $(components_source_h) \
     rut-color.h \
+    rut-image-source.h \
     rut-entity.h \
     rut-components.h \
     rut-type.h \
@@ -43,7 +45,6 @@ source_h = \
     rut-prop-inspector.h \
     rut-closure.h \
     rut-asset.h \
-    rut-bevel.h \
     rut-stack.h \
     rut-entry.h \
     rut-gaussian-blurrer.h \
@@ -70,7 +71,8 @@ source_h = \
     rut-nine-slice.h \
     rut-fixed.h \
     rut-fold.h \
-    rut-refcount-debug.h
+    rut-refcount-debug.h \
+    rut-icon-burron.h
 
 librut_la_SOURCES = \
     components/rut-camera.c \
@@ -79,10 +81,12 @@ librut_la_SOURCES = \
     components/rut-material.c \
     components/rut-diamond.c \
     components/rut-shape.c \
+    components/rut-pointalism-grid.c \
     rply.c \
     rply.h \
     color-table.h \
     rut-color.c \
+    rut-image-source.c \
     rut-entity.c \
     rut-type.c \
     rut-object.c \
@@ -117,7 +121,6 @@ librut_la_SOURCES = \
     rut-prop-inspector.c \
     rut-closure.c \
     rut-asset.c \
-    rut-bevel.c \
     rut-stack.c \
     rut-entry.c \
     rut-gaussian-blurrer.c \
@@ -143,6 +146,7 @@ librut_la_SOURCES = \
     rut-fixed.c \
     rut-fold.c \
     rut-refcount-debug.c \
+    rut-icon-button.c \
     $(source_h)
 
 if !HAVE_ANDROID

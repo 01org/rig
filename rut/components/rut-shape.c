@@ -44,8 +44,8 @@ _shape_model_free (void *object)
   RutShapeModel *shape_model = object;
 
   cogl_object_unref (shape_model->shape_texture);
-  cogl_object_unref (shape_model->primitive);
   rut_refable_unref (shape_model->pick_mesh);
+  rut_refable_unref (shape_model->shape_mesh);
 
   g_slice_free (RutShapeModel, object);
 }
@@ -77,93 +77,70 @@ typedef struct _VertexP2T2T2
 #endif
 } VertexP2T2T2;
 
-static CoglPrimitive *
-primitive_new_p2t2t2 (CoglContext *ctx,
-                      CoglVerticesMode mode,
-                      int n_vertices,
-                      const VertexP2T2T2 *data)
+static RutMesh *
+mesh_new_p2t2t2 (CoglVerticesMode mode,
+                 int n_vertices,
+                 const VertexP2T2T2 *data)
 {
-  CoglAttributeBuffer *attribute_buffer =
-    cogl_attribute_buffer_new (ctx, n_vertices * sizeof (VertexP2T2T2), data);
-  int n_attributes = 7;
-  CoglAttribute *attributes[n_attributes];
-  CoglPrimitive *primitive;
-#ifndef MESA_CONST_ATTRIB_BUG_WORKAROUND
-  const float normal[3] = { 0, 0, 1 };
-  const float tangent[3] = { 1, 0, 0 };
-#endif
-  int i;
+  RutMesh *mesh;
+  RutAttribute *attributes[7];
+  RutBuffer *vertex_buffer;
 
-  attributes[0] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_position_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, x),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
+  vertex_buffer = rut_buffer_new (sizeof (VertexP2T2T2) * n_vertices);
+  memcpy (vertex_buffer->data, data, sizeof (VertexP2T2T2) * n_vertices);
 
-  /* coords for shape mask, for rounded corners */
-  attributes[1] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord0_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s0),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  /* coords for primary texture */
-  attributes[2] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord1_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s1),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  /* coords for alpha mask texture */
-  attributes[3] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord2_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s1),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  /* coords for normal map */
-  attributes[4] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord5_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, s1),
-                                      2,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
+  attributes[0] = rut_attribute_new (vertex_buffer,
+                                     "cogl_position_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, x),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-#ifdef MESA_CONST_ATTRIB_BUG_WORKAROUND
-  attributes[5] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_normal_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, Nx),
-                                      3,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-  attributes[6] = cogl_attribute_new (attribute_buffer,
-                                      "tangent_in",
-                                      sizeof (VertexP2T2T2),
-                                      offsetof (VertexP2T2T2, Tx),
-                                      3,
-                                      COGL_ATTRIBUTE_TYPE_FLOAT);
-#else
-  attributes[5] = cogl_attribute_new_const_3fv (ctx,
-                                                "cogl_normal_in",
-                                                normal);
+  attributes[1] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord0_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s0),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  attributes[6] = cogl_attribute_new_const_3fv (ctx,
-                                                "tangent_in",
-                                                tangent);
-#endif
+  attributes[2] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord1_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  cogl_object_unref (attribute_buffer);
+  attributes[3] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord4_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  primitive = cogl_primitive_new_with_attributes (mode,
-                                                  n_vertices,
-                                                  attributes,
-                                                  n_attributes);
+  attributes[4] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord7_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  for (i = 0; i < n_attributes; i++)
-    cogl_object_unref (attributes[i]);
+  attributes[5] = rut_attribute_new (vertex_buffer,
+                                     "cogl_normal_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, Nx),
+                                     3,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  return primitive;
+  attributes[6] = rut_attribute_new (vertex_buffer,
+                                     "tangent_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, Tx),
+                                     3,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
+
+  mesh = rut_mesh_new (mode, n_vertices, attributes, 7);
+
+  return mesh;
 }
 
 static RutShapeModel *
@@ -273,7 +250,6 @@ shape_model_new (RutContext *ctx,
                                        &vertices[i].t1,
                                        &z,
                                        &w);
-#ifdef MESA_CONST_ATTRIB_BUG_WORKAROUND
           vertices[i].Nx = 0;
           vertices[i].Ny = 0;
           vertices[i].Nz = 1;
@@ -281,14 +257,10 @@ shape_model_new (RutContext *ctx,
           vertices[i].Tx = 1;
           vertices[i].Ty = 0;
           vertices[i].Tz = 0;
-#endif
         }
 
-      shape_model->primitive =
-        primitive_new_p2t2t2 (ctx->cogl_context,
-                              COGL_VERTICES_MODE_TRIANGLES,
-                              n_vertices,
-                              vertices);
+      shape_model->shape_mesh =
+        mesh_new_p2t2t2 (COGL_VERTICES_MODE_TRIANGLES, n_vertices, vertices);
     }
 
   shape_model->shape_texture = cogl_object_ref (ctx->circle_texture);
@@ -427,8 +399,10 @@ rut_shape_get_primitive (RutObject *object)
 {
   RutShape *shape = object;
   RutShapeModel *model = rut_shape_get_model (shape);
+  CoglPrimitive *primitive = rut_mesh_create_primitive (shape->ctx,
+                                                        model->shape_mesh);
 
-  return model->primitive;
+  return primitive;
 }
 
 CoglTexture *

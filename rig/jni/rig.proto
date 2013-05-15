@@ -86,7 +86,7 @@ message Entity
 {
   message Component
     {
-      enum Type { LIGHT=1; MATERIAL=2; SHAPE=3; DIAMOND=4; MODEL=5; TEXT=6; CAMERA=7; }
+      enum Type { LIGHT=1; MATERIAL=2; SHAPE=3; DIAMOND=4; MODEL=5; TEXT=6; CAMERA=7; POINTALISM_GRID=8; }
 
       message Light
         {
@@ -154,6 +154,14 @@ message Entity
           optional Color background=10;
         }
 
+      message PointalismGrid
+        {
+          optional float cell_size=1;
+          optional float scale=2;
+          optional float z=3;
+          optional bool lighter=4;
+        }
+
       optional sint64 id=1;
       optional Type type=2;
       optional Light light=3;
@@ -163,6 +171,7 @@ message Entity
       optional Model model=7;
       optional Text text=8;
       optional Camera camera=9;
+      optional PointalismGrid grid=10;
     }
 
   optional sint64 id=1;

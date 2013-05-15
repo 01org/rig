@@ -24,6 +24,7 @@
 #include "rut-global.h"
 #include "rut-asset.h"
 #include "rut-color.h"
+#include "rut-pointalism-grid.h"
 
 static RutPropertySpec _rut_material_prop_specs[] = {
   {
@@ -350,6 +351,8 @@ rut_material_flush_uniforms (RutMaterial *material,
                              CoglPipeline *pipeline)
 {
   int location;
+  RutObject *geo;
+  RutEntity *entity = material->component.entity;
 
   //if (material->uniforms_age == material->uniforms_flush_age)
   //  return;
@@ -379,6 +382,29 @@ rut_material_flush_uniforms (RutMaterial *material,
   location = cogl_pipeline_get_uniform_location (pipeline,
                                                  "material_alpha_threshold");
   cogl_pipeline_set_uniform_1f (pipeline, location, material->alpha_mask_threshold);
+
+  geo = rut_entity_get_component (entity, RUT_COMPONENT_TYPE_GEOMETRY);
+
+  if (rut_object_get_type (geo) == &rut_pointalism_grid_type &&
+      material->texture_asset)
+    {
+      int scale, z;
+      scale = rut_pointalism_grid_get_scale (geo);
+      z = rut_pointalism_grid_get_z (geo);
+
+      location = cogl_pipeline_get_uniform_location (pipeline,
+                                                     "scale_factor");
+      cogl_pipeline_set_uniform_1f (pipeline, location, scale);
+
+      location = cogl_pipeline_get_uniform_location (pipeline, "z_trans");
+      cogl_pipeline_set_uniform_1f (pipeline, location, z);
+
+      location = cogl_pipeline_get_uniform_location (pipeline, "anti_scale");
+      if (rut_pointalism_grid_get_lighter (geo))
+        cogl_pipeline_set_uniform_1i (pipeline, location, 1);
+      else
+        cogl_pipeline_set_uniform_1i (pipeline, location, 0);
+    }
 
   material->uniforms_flush_age = material->uniforms_age;
 }

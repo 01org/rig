@@ -42,19 +42,14 @@ struct _RutEntry
   int ref_count;
 
   RutGraphableProps graphable;
-  RutPaintableProps paintable;
 
-  CoglPipeline *pipeline;
-  CoglPipeline *circle_pipeline;
-  CoglPipeline *border_pipeline;
-  CoglPipeline *border_circle_pipeline;
+  RutNineSlice *background;
+
+  RutIcon *icon;
+  RutTransform *icon_transform;
 
   RutText *text;
   RutTransform *text_transform;
-
-  CoglPrimitive *prim;
-
-  CoglColor colors[4];
 
   float width;
   float height;
@@ -82,16 +77,27 @@ static RutPropertySpec _rut_entry_prop_specs[] = {
 };
 
 static void
+remove_icon (RutEntry *entry)
+{
+  if (!entry->icon)
+    return;
+
+  /* NB: we don't keep any addition references on the icon and icon
+   * transform other those for adding them to the scene graph... */
+
+  rut_graphable_remove_child (entry->icon_transform);
+  entry->icon = NULL;
+  entry->icon_transform = NULL;
+}
+
+static void
 _rut_entry_free (void *object)
 {
   RutEntry *entry = object;
 
   rut_refable_unref (entry->ctx);
 
-  if (entry->pipeline)
-    cogl_object_unref (entry->pipeline);
-  if (entry->prim)
-    cogl_object_unref (entry->prim);
+  remove_icon (entry);
 
   rut_simple_introspectable_destroy (entry);
 
@@ -145,90 +151,51 @@ create_entry_prim (RutEntry *entry)
 #endif
 
 static void
-_rut_entry_paint (RutObject *object,
-                  RutPaintContext *paint_ctx)
+allocate (RutEntry *entry)
 {
-  RutEntry *entry = (RutEntry *) object;
-  RutCamera *camera = paint_ctx->camera;
-  CoglFramebuffer *fb = rut_camera_get_framebuffer (camera);
-
-  /* make sure the entrys are pixel aligned... */
   float width = entry->width;
   float height = entry->height;
-  float half_height = height / 2.0;
+  float icon_width = 0;
+  float icon_height = 0;
 
+  rut_sizable_set_size (entry->background, width, height);
 
-#if 0
-  if (!entry->prim)
-    entry->prim = create_entry_prim (entry);
-
-  cogl_framebuffer_draw_primitive (fb, entry->pipeline, entry->prim);
-#endif
-
-  /* NB ctx->circle_texture is padded such that the texture itself is twice as
-   * wide as the circle */
-  cogl_framebuffer_draw_textured_rectangle (fb,
-                                            entry->circle_pipeline,
-                                            -half_height,
-                                            -half_height,
-                                            half_height,
-                                            height + half_height,
-                                            0.0f, 0.0f,
-                                            0.5f, 1.0f);
-  cogl_framebuffer_draw_textured_rectangle (fb,
-                                            entry->circle_pipeline,
-                                            width - half_height,
-                                            -half_height,
-                                            width + half_height,
-                                            height + half_height,
-                                            0.5f, 0.0f,
-                                            1.0f, 1.0f);
-  cogl_framebuffer_draw_textured_rectangle (fb,
-                                            entry->circle_pipeline,
-                                            half_height,
-                                            -half_height,
-                                            width - half_height,
-                                            height + half_height,
-                                            0.5f, 0.0f, 0.5f, 1.0f);
-
-#if 0
-  cogl_framebuffer_draw_rectangle (fb,
-                                   entry->pipeline,
-                                   0, 0, height, height);
-  cogl_framebuffer_draw_rectangle (fb, entry->pipeline,
-                                   0, 0, width, 1);
-  cogl_framebuffer_draw_rectangle (fb, entry->pipeline,
-                                   width - 1, 0, width, height);
-  cogl_framebuffer_draw_rectangle (fb, entry->pipeline,
-                                   0, height - 1, width, height);
-  cogl_framebuffer_draw_rectangle (fb, entry->pipeline,
-                                   0, 0, 1, height);
-#endif
-}
-
-void
-rut_entry_set_size (RutEntry *entry,
-                    float width,
-                    float height)
-{
-  if (entry->prim)
+  if (entry->icon)
     {
-      cogl_object_unref (entry->prim);
-      entry->prim = NULL;
+      rut_sizable_get_size (entry->icon, &icon_width, &icon_height);
+
+      rut_transform_init_identity (entry->icon_transform);
+      rut_transform_translate (entry->icon_transform,
+                               (int) (height / 2.0f),
+                               0.0f,
+                               0.0f);
     }
 
   rut_transform_init_identity (entry->text_transform);
   rut_transform_translate (entry->text_transform,
-                           (int) (height / 2.0f),
+                           (int) (height / 2.0f) + icon_width,
                            0.0f,
                            0.0f);
 
   rut_sizable_set_size (entry->text,
                         width - height,
                         height);
+}
+
+void
+rut_entry_set_size (RutObject *object,
+                    float width,
+                    float height)
+{
+  RutEntry *entry = object;
+
+  if (entry->width == width && entry->height == height)
+    return;
 
   entry->width = width;
   entry->height = height;
+
+  allocate (entry);
 
   rut_property_dirty (&entry->ctx->property_ctx,
                       &entry->properties[RUT_ENTRY_PROP_WIDTH]);
@@ -237,11 +204,14 @@ rut_entry_set_size (RutEntry *entry,
 }
 
 void
-rut_entry_get_size (RutEntry *entry,
+rut_entry_get_size (RutObject *object,
                     float *width,
                     float *height)
 {
-  rut_sizable_get_size (entry->text, width, height);
+  RutEntry *entry = object;
+
+  *width = entry->width;
+  *height = entry->height;
 }
 
 static void
@@ -268,6 +238,14 @@ _rut_entry_get_preferred_width (RutObject *object,
   min_width += natural_height;
   natural_width += natural_height;
 
+  if (entry->icon)
+    {
+      float width, height;
+      rut_sizable_get_size (entry->icon, &width, &height);
+      min_width += width;
+      natural_width += width;
+    }
+
   if (min_width_p)
     *min_width_p = min_width;
   if (natural_width_p)
@@ -281,16 +259,23 @@ _rut_entry_get_preferred_height (RutObject *object,
                                  float *natural_height_p)
 {
   RutEntry *entry = RUT_ENTRY (object);
+
   /* We can't pass on the for_width parameter because the width that
    * the text widget will actually get depends on the height that it
    * returns */
   rut_sizable_get_preferred_height (entry->text, -1,
                                     min_height_p, natural_height_p);
-}
 
-RutPaintableVTable _rut_entry_paintable_vtable = {
-  _rut_entry_paint
-};
+  if (entry->icon)
+    {
+      float width, height;
+      rut_sizable_get_size (entry->icon, &width, &height);
+      if (min_height_p)
+        *min_height_p = MAX (*min_height_p, height);
+      if (natural_height_p)
+        *natural_height_p = MAX (*natural_height_p, height);
+    }
+}
 
 static RutSizableVTable _rut_entry_sizable_vtable = {
   rut_entry_set_size,
@@ -315,10 +300,6 @@ _rut_entry_init_type (void)
                           RUT_INTERFACE_ID_REF_COUNTABLE,
                           offsetof (RutEntry, ref_count),
                           &_rut_entry_ref_countable_vtable);
-  rut_type_add_interface (&rut_entry_type,
-                          RUT_INTERFACE_ID_PAINTABLE,
-                          offsetof (RutEntry, paintable),
-                          &_rut_entry_paintable_vtable);
   rut_type_add_interface (&rut_entry_type,
                           RUT_INTERFACE_ID_GRAPHABLE,
                           offsetof (RutEntry, graphable),
@@ -362,6 +343,7 @@ rut_entry_new (RutContext *ctx)
   RutEntry *entry = g_slice_new0 (RutEntry);
   static CoglBool initialized = FALSE;
   float width, height;
+  CoglTexture *bg_texture;
 
   if (initialized == FALSE)
     {
@@ -380,19 +362,20 @@ rut_entry_new (RutContext *ctx)
                                   _rut_entry_prop_specs,
                                   entry->properties);
 
-  entry->pipeline = cogl_pipeline_new (ctx->cogl_context);
-  cogl_pipeline_set_color4f (entry->pipeline, 0.87, 0.87, 0.87, 1);
-
-  entry->border_pipeline = cogl_pipeline_copy (entry->pipeline);
-  cogl_pipeline_set_color4f (entry->border_pipeline, 1, 1, 1, 1);
-
-  entry->circle_pipeline = cogl_pipeline_copy (entry->pipeline);
-  cogl_pipeline_set_layer_texture (entry->circle_pipeline, 0, ctx->circle_texture);
-  entry->border_circle_pipeline = cogl_pipeline_copy (entry->circle_pipeline);
-  cogl_pipeline_set_color4f (entry->border_circle_pipeline, 1, 1, 1, 1);
-
-  rut_paintable_init (RUT_OBJECT (entry));
   rut_graphable_init (RUT_OBJECT (entry));
+
+  bg_texture =
+    rut_load_texture_from_data_file (ctx,
+                                     "number-slider-background.png",
+                                     NULL);
+
+  entry->background = rut_nine_slice_new (ctx,
+                                          bg_texture,
+                                          7, 7, 7, 7,
+                                          0, 0);
+  cogl_object_unref (bg_texture);
+  rut_graphable_add_child (entry, entry->background);
+  rut_refable_unref (entry->background);
 
   entry->text = rut_text_new (ctx);
   rut_text_set_editable (entry->text, TRUE);
@@ -419,4 +402,32 @@ RutText *
 rut_entry_get_text (RutEntry *entry)
 {
   return entry->text;
+}
+
+void
+rut_entry_set_icon (RutEntry *entry,
+                    RutIcon *icon)
+{
+  if (entry->icon == icon)
+    return;
+
+  remove_icon (entry);
+
+  if (icon)
+    {
+      /* XXX: note we don't keep any additional reference on the
+       * icon and icon transform other than those for adding
+       * them to the scene graph... */
+
+      entry->icon_transform = rut_transform_new (entry->ctx);
+      rut_graphable_add_child (entry, entry->icon_transform);
+      rut_refable_unref (entry->icon_transform);
+
+      rut_graphable_add_child (entry->icon_transform, icon);
+      entry->icon = icon;
+
+      allocate (entry);
+    }
+
+  rut_shell_queue_redraw (entry->ctx->shell);
 }

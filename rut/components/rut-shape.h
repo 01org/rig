@@ -40,9 +40,7 @@ struct _RutShapeModel
   /* TODO: optionally copy the shape texture into a cpu cached buffer
    * and pick by sampling into that instead of using geometry. */
   RutMesh *pick_mesh;
-
-  CoglPrimitive *primitive;
-
+  RutMesh *shape_mesh;
 };
 
 void

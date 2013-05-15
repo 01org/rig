@@ -35,7 +35,7 @@ struct _RutDiamondSlice
 
   float size;
 
-  CoglPrimitive *primitive;
+  RutMesh *mesh;
 
 };
 
