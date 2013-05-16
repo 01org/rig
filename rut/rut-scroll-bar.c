@@ -29,6 +29,7 @@
 #include "rut-paintable.h"
 #include "rut-camera-private.h"
 #include "rut-scroll-bar.h"
+#include "rut-color.h"
 
 #define THICKNESS 20
 #define HANDLE_THICKNESS 15
@@ -47,6 +48,8 @@ struct _RutScrollBar
   int ref_count;
 
   RutContext *ctx;
+
+  CoglColor color;
 
   int thickness;
 
@@ -389,11 +392,13 @@ rut_scroll_bar_new (RutContext *ctx,
   scroll_bar->viewport_length = viewport_length;
   scroll_bar->offset = 0;
 
+  rut_color_init_from_uint32 (&scroll_bar->color, 0x919191ff);
+
   scroll_bar->thickness = THICKNESS;
 
   scroll_bar->rect_pipeline = cogl_pipeline_new (ctx->cogl_context);
-  cogl_pipeline_set_color4f (scroll_bar->rect_pipeline,
-                             0.2, 0.2, 0.2, 1.0);
+  cogl_pipeline_set_color (scroll_bar->rect_pipeline,
+                           &scroll_bar->color);
 
   scroll_bar->rounded_pipeline = cogl_pipeline_copy (scroll_bar->rect_pipeline);
   cogl_pipeline_set_layer_texture (scroll_bar->rounded_pipeline,
@@ -522,4 +527,11 @@ float
 rut_scroll_bar_get_thickness (RutScrollBar *scroll_bar)
 {
   return scroll_bar->thickness;
+}
+
+void
+rut_scroll_bar_set_color (RutScrollBar *scroll_bar,
+                          const CoglColor *color)
+{
+  scroll_bar->color = *color;
 }

@@ -68,4 +68,8 @@ rut_scroll_bar_get_virtual_viewport (RutScrollBar *scroll_bar);
 float
 rut_scroll_bar_get_thickness (RutScrollBar *scroll_bar);
 
+void
+rut_scroll_bar_set_color (RutScrollBar *scroll_bar,
+                          const CoglColor *color);
+
 #endif /* _RUT_SCROLL_BAR_H_ */

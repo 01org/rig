@@ -103,7 +103,7 @@ primitive_new_p2t2t2 (CoglContext *ctx,
                                       COGL_ATTRIBUTE_TYPE_FLOAT);
   /* coords for alpha mask texture */
   attributes[3] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord2_in",
+                                      "cogl_tex_coord4_in",
                                       sizeof (VertexP2T2T2),
                                       offsetof (VertexP2T2T2, s1),
                                       2,
@@ -111,7 +111,7 @@ primitive_new_p2t2t2 (CoglContext *ctx,
 
   /* coords for normal map */
   attributes[4] = cogl_attribute_new (attribute_buffer,
-                                      "cogl_tex_coord5_in",
+                                      "cogl_tex_coord7_in",
                                       sizeof (VertexP2T2T2),
                                       offsetof (VertexP2T2T2, s1),
                                       2,

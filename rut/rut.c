@@ -427,6 +427,7 @@ _rut_init (void)
       _rut_text_buffer_init_type ();
       _rut_text_init_type ();
       _rut_timeline_init_type ();
+      _rut_image_source_init_type ();
       _rut_entity_init_type ();
       _rut_asset_type_init ();
       _rut_buffer_init_type ();
@@ -443,6 +444,8 @@ _rut_init (void)
       _rut_diamond_slice_init_type ();
       _rut_shape_init_type ();
       _rut_shape_model_init_type ();
+      _rut_hair_init_type ();
+      //_rut_hair_slice_init_type ();
 
       g_once_init_leave (&init_status, 1);
     }

@@ -51,7 +51,8 @@ void
 rig_paint_camera_entity (RutEntity *camera, RigPaintContext *paint_ctx);
 
 void
-rig_dirty_entity_pipelines (RutEntity *entity);
+rig_dirty_entity_pipelines (gpointer instance,
+                            gpointer user_data);
 
 void
 rig_renderer_init (RigEngine *engine);

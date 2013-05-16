@@ -2,6 +2,7 @@
 #define _RUT_ASSET_H_
 
 #include <gio/gio.h>
+#include <cogl-gst/cogl-gst.h> 
 
 typedef enum _RutAssetType {
   RUT_ASSET_TYPE_BUILTIN,
@@ -26,14 +27,23 @@ rut_asset_new_builtin (RutContext *ctx,
 
 RutAsset *
 rut_asset_new_texture (RutContext *ctx,
+                       CoglBool is_video,
+                       GCallback cb,
+                       gpointer user_data,
                        const char *path);
 
 RutAsset *
 rut_asset_new_normal_map (RutContext *ctx,
+                          CoglBool is_video,
+                          GCallback cb,
+                          gpointer user_data,
                           const char *path);
 
 RutAsset *
 rut_asset_new_alpha_mask (RutContext *ctx,
+                          CoglBool is_video,
+                          GCallback cb,
+                          gpointer user_data,
                           const char *path);
 
 RutAsset *
@@ -61,6 +71,9 @@ rut_asset_get_texture (RutAsset *asset);
 
 RutMesh *
 rut_asset_get_mesh (RutAsset *asset);
+
+CoglBool
+rut_asset_get_is_video (RutAsset *asset);
 
 void
 rut_asset_set_inferred_tags (RutAsset *asset,
