@@ -17,6 +17,9 @@ Dependencies
    SDL isn't required if building for Android where Rig uses *EGL* to
    create an OpenGL context and directly supports Android's input API.
 
+   SDL 2.0 is highly recommended over SDL 1 although both should
+   currently work.
+
 2. **Cogl:**
 
     Rig uses the Cogl 3D graphics utility api to manage OpenGL state
@@ -60,18 +63,18 @@ Rig can be run in two modes:
 
     This mode is for interactively designing a new user interface.
     This mode is used by default if the only argument you give to Rig
-    is a path to a UI.xml file like:
+    is a path to a UI.rig file like:
 
-        rig /path/to/my/ui.xml
+        rig /path/to/my/ui.rig
 
-    If the XML file doesn't exist then it will be created when you
+    If the file doesn't exist then it will be created when you
     save by pressing `Ctrl-S` so long as the parent directory already
     exists.
 
     **Note:** When Rig is run in editor mode it will automatically
-    search for image assets under the parent directory of your ui.xml
+    search for image assets under the parent directory of your ui
     file. (So under `/path/to/my` for the above example) Because of
-    this, it would not be recommended to create a new ui.xml at the
+    this, it would not be recommended to create a new ui.rig at the
     top of your home directory.
 
 2. **Device Mode**
@@ -79,8 +82,8 @@ Rig can be run in two modes:
     Once you have a UI that you want to run as an application Rig can
     instead be run in a chromeless device mode like this:
 
-        rig --device-mode /path/to/my/ui.xml
+        rig --device-mode /path/to/my/ui.rig
 
     Or simply:
 
-        rig -d /path/to/my/ui.xml
+        rig -d /path/to/my/ui.rig

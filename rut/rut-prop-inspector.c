@@ -399,8 +399,8 @@ rut_prop_inspector_create_control_for_property (RutContext *context,
 
             if ((spec->flags & RUT_PROPERTY_FLAG_VALIDATE))
               {
-                const RutPropertyValidationFloat *validation =
-                  &spec->validation.float_range;
+                const RutPropertyValidationInteger *validation =
+                  &spec->validation.int_range;
 
                 min = validation->min;
                 max = validation->max;
@@ -413,8 +413,8 @@ rut_prop_inspector_create_control_for_property (RutContext *context,
 
             if ((spec->flags & RUT_PROPERTY_FLAG_VALIDATE))
               {
-                const RutPropertyValidationInteger *validation =
-                  &spec->validation.int_range;
+                const RutPropertyValidationFloat *validation =
+                  &spec->validation.float_range;
 
                 min = validation->min;
                 max = validation->max;

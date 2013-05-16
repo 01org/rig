@@ -5,6 +5,7 @@
 #include <rig-engine.h>
 #include <rig-engine.h>
 #include <rig-avahi.h>
+#include <cogl-gst/cogl-gst.h>
 
 static char **_rig_editor_remaining_args = NULL;
 
@@ -59,6 +60,8 @@ main (int argc, char **argv)
                               &engine);
 
   engine.ctx = rut_context_new (engine.shell);
+
+  gst_init (&argc, &argv);
 
   rut_context_init (engine.ctx);
 

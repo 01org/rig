@@ -39,6 +39,12 @@ void
 rut_fold_set_folded (RutFold *fold, CoglBool folded);
 
 void
-rut_fold_set_color_u32 (RutFold *fold, uint32_t color_uint32);
+rut_fold_set_folder_color (RutFold *fold, const CoglColor *color);
+
+void
+rut_fold_set_label_color (RutFold *fold, const CoglColor *color);
+
+void
+rut_fold_set_font_name (RutFold *fold, const char *font);
 
 #endif /* _RUT_FOLD_H_ */

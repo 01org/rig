@@ -101,9 +101,10 @@ struct _RigEngine
   RutBoxLayout *top_bar_hbox;
   RutBoxLayout *top_bar_hbox_ltr;
   RutBoxLayout *top_bar_hbox_rtl;
+  RutBoxLayout *asset_panel_hbox;
   RutBoxLayout *toolbar_vbox;
   RutBoxLayout *properties_hbox;
-  RigSplitView *splits[2];
+  RigSplitView *splits[1];
 
   //RutBevel *main_area_bevel;
   RigCameraView *main_camera_view;
@@ -138,10 +139,16 @@ struct _RigEngine
 
   RutUIViewport *assets_vp;
   RutFold *assets_results_fold;
-  RutFlowLayout *assets_flow;
+  RutBoxLayout *assets_results_vbox;
+  RutFlowLayout *assets_geometry_results;
+  RutFlowLayout *assets_image_results;
+  RutFlowLayout *assets_video_results;
+  RutFlowLayout *assets_other_results;
+
   RutAsset *text_builtin_asset;
   RutAsset *circle_builtin_asset;
   RutAsset *diamond_builtin_asset;
+  RutAsset *pointalism_grid_builtin_asset;
   GList *asset_input_closures;
   GList *asset_enumerators;
 
@@ -158,6 +165,12 @@ struct _RigEngine
 
   RutEntity *light;
   RutEntity *light_handle;
+
+  RutEntity *play_camera;
+  RutCamera *play_camera_component;
+#ifdef RIG_EDITOR_ENABLED
+  RutEntity *play_camera_handle;
+#endif
 
   /* postprocessing */
   CoglFramebuffer *postprocess;
@@ -205,6 +218,7 @@ struct _RigEngine
 #endif
 
   CoglSnippet *alpha_mask_snippet;
+  CoglSnippet *alpha_mask_video_snippet;
   CoglSnippet *lighting_vertex_snippet;
   CoglSnippet *normal_map_vertex_snippet;
   CoglSnippet *shadow_mapping_vertex_snippet;
@@ -213,9 +227,15 @@ struct _RigEngine
   CoglSnippet *premultiply_snippet;
   CoglSnippet *unpremultiply_snippet;
   CoglSnippet *normal_map_fragment_snippet;
+  CoglSnippet *normal_map_video_snippet;
   CoglSnippet *material_lighting_snippet;
   CoglSnippet *simple_lighting_snippet;
   CoglSnippet *shadow_mapping_fragment_snippet;
+  CoglSnippet *pointalism_vertex_snippet;
+  CoglSnippet *pointalism_video_snippet;
+  CoglSnippet *pointalism_halo_snippet;
+  CoglSnippet *pointalism_opaque_snippet;
+  CoglSnippet *cache_position_snippet;
 
   GHashTable *assets_registry;
 
@@ -296,5 +316,9 @@ rig_set_play_mode_enabled (RigEngine *engine, CoglBool enabled);
 
 void
 rig_engine_sync_slaves (RigEngine *engine);
+
+void
+rig_engine_dirty_properties_menu (RutImageSource *source,
+                                  void *user_data);
 
 #endif /* _RUT_ENGINE_H_ */

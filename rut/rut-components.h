@@ -26,5 +26,6 @@
 #include "components/rut-camera.h"
 #include "components/rut-diamond.h"
 #include "components/rut-shape.h"
+#include "components/rut-pointalism-grid.h"
 
 #endif /* __RUT_COMPONENTS_H__ */

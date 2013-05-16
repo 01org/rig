@@ -27,6 +27,7 @@
  * into a "Renderer" and let that code somehow define how many slots it wants
  * associated with an entity for caching state. */
 #define N_PIPELINE_CACHE_SLOTS 3
+#define N_IMAGE_SOURCE_CACHE_SLOTS 3
 
 enum
 {
@@ -66,6 +67,7 @@ struct _RutEntity
   GPtrArray *components;
 
   CoglPipeline *pipeline_caches[N_PIPELINE_CACHE_SLOTS];
+  RutImageSource *image_source_caches[N_IMAGE_SOURCE_CACHE_SLOTS];
 
   RutSimpleIntrospectableProps introspectable;
   RutProperty properties[N_PROPS];
@@ -152,6 +154,7 @@ _rut_entity_free (void *object)
 {
   RutEntity *entity = object;
   CoglPipeline **pipeline_caches = entity->pipeline_caches;
+  RutImageSource **image_source_caches = entity->image_source_caches;
   int i;
 
   g_free (entity->label);
@@ -168,6 +171,12 @@ _rut_entity_free (void *object)
     {
       if (pipeline_caches[i])
         cogl_object_unref (pipeline_caches[i]);
+    }
+
+  for (i = 0; i < N_IMAGE_SOURCE_CACHE_SLOTS; i++)
+    {
+      if (image_source_caches[i])
+        rut_refable_unref (image_source_caches[i]);
     }
 
   g_slice_free (RutEntity, entity);
@@ -733,6 +742,26 @@ rut_entity_get_pipeline_cache (RutEntity *entity,
                                int slot)
 {
   return entity->pipeline_caches[slot];
+}
+
+void
+rut_entity_set_image_source_cache (RutEntity *entity,
+                                   int slot,
+                                   RutImageSource *source)
+{
+  if (entity->image_source_caches[slot])
+    rut_refable_unref (entity->image_source_caches[slot]);
+
+  entity->image_source_caches[slot] = source;
+  if (source)
+    rut_refable_ref (source);
+}
+
+RutImageSource*
+rut_entity_get_image_source_cache (RutEntity *entity,
+                                   int slot)
+{
+  return entity->image_source_caches[slot];
 }
 
 CoglBool

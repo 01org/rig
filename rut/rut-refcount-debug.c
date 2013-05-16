@@ -548,4 +548,33 @@ _rut_refcount_debug_unref (void *object)
     log_action (object_data, RUT_REFCOUNT_DEBUG_ACTION_TYPE_UNREF);
 }
 
+void
+rut_refable_dump_refs (void *object)
+{
+  RutRefcountDebugState *state = get_state ();
+  RutRefcountDebugObject *object_data;
+  DumpObjectCallbackData dump_data = {
+    .state = state,
+    .out_file = stdout,
+    NULL /* address table */
+  };
+
+  if (!state->enabled)
+    return;
+
+  object_data = g_hash_table_lookup (state->hash, object);
+  if (object_data == NULL)
+    {
+      g_print ("No reference information tracked for object %p\n", object);
+      return;
+    }
+
+#ifdef RUT_ENABLE_BACKTRACE
+  if (state->backtrace_level > 0)
+    dump_data.address_table = resolve_addresses (state);
+#endif
+
+  dump_object_cb (object, object_data, &dump_data);
+}
 #endif /* RUT_ENABLE_REFCOUNT_DEBUG */
+

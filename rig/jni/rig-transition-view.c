@@ -175,7 +175,8 @@ struct _RigTransitionView
   int separator_width;
 
   CoglPipeline *nodes_bg_pipeline;
-  int nodes_grid_size;
+  int nodes_grid_width;
+  int nodes_grid_height;
 
   int ref_count;
 };
@@ -494,12 +495,16 @@ static void
 rig_transition_view_draw_nodes_background (RigTransitionView *view,
                                            CoglFramebuffer *fb)
 {
-  int tex_size = view->row_height;
+  int tex_width = view->row_height * 8;
+  int tex_height = view->row_height;
+  int half_width = tex_width / 2;
+  int quater_width = half_width / 2;
 
-  if (tex_size < 1)
+  if (tex_width < 1)
     return;
 
-  if (view->row_height != tex_size &&
+  if ((view->nodes_grid_width != tex_width ||
+       view->nodes_grid_height != tex_height) &&
       view->nodes_bg_pipeline)
     {
       cogl_object_unref (view->nodes_bg_pipeline);
@@ -519,7 +524,7 @@ rig_transition_view_draw_nodes_background (RigTransitionView *view,
       pipeline = cogl_pipeline_new (view->context->cogl_context);
 
       bitmap = cogl_bitmap_new_with_size (view->context->cogl_context,
-                                          tex_size, tex_size,
+                                          tex_width, tex_height,
                                           COGL_PIXEL_FORMAT_RGB_888);
       buffer = cogl_bitmap_get_buffer (bitmap);
 
@@ -529,14 +534,18 @@ rig_transition_view_draw_nodes_background (RigTransitionView *view,
                                   COGL_BUFFER_MAP_HINT_DISCARD,
                                   NULL);
 
-      for (y = 0; y < tex_size - 1; y++)
+      memset (tex_data, 0xff, rowstride * tex_height);
+      for (y = 0; y < tex_height - 1; y++)
         {
           uint8_t *p = tex_data + y * rowstride;
 
-          memset (p, 0x91, 3 * (tex_size - 1));
-          memset (p + (tex_size - 1) * 3, 0x74, 3);
+          memset (p, 0x63, 3 * half_width);
+          memset (p + half_width * 3, 0x47, 3 * (tex_width - half_width));
+
+          memset (p + quater_width * 3, 0x74, 3);
+          memset (p + (half_width + quater_width) * 3, 0x74, 3);
         }
-      memset (tex_data + rowstride * (tex_size - 1), 0x74, tex_size * 3);
+      memset (tex_data + rowstride * (tex_height - 1), 0x74, tex_width * 3);
 
       cogl_buffer_unmap (COGL_BUFFER (buffer));
 
@@ -561,7 +570,8 @@ rig_transition_view_draw_nodes_background (RigTransitionView *view,
       cogl_object_unref (bitmap);
       cogl_object_unref (texture);
 
-      view->nodes_grid_size = tex_size;
+      view->nodes_grid_width = tex_width;
+      view->nodes_grid_height = tex_height;
 
       view->nodes_bg_pipeline = pipeline;
     }
@@ -574,9 +584,9 @@ rig_transition_view_draw_nodes_background (RigTransitionView *view,
                                             view->total_height,
                                             0, 0, /* s1, t1 */
                                             view->nodes_width /
-                                            (float) tex_size,
+                                            (float) tex_width,
                                             view->total_height /
-                                            (float) tex_size);
+                                            (float) tex_height);
 }
 
 static void

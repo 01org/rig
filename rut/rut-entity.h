@@ -28,6 +28,7 @@
 #include "rut-object.h"
 #include "rut-interfaces.h"
 #include "rut-context.h"
+#include "rut-image-source.h"
 
 #define RUT_COMPONENT(X) ((RutComponent *)(X))
 typedef struct _RutComponent RutComponent;
@@ -219,6 +220,15 @@ rut_entity_set_pipeline_cache (RutEntity *entity,
 CoglPipeline *
 rut_entity_get_pipeline_cache (RutEntity *entity,
                                int slot);
+
+void
+rut_entity_set_image_source_cache (RutEntity *entity,
+                                   int slot,
+                                   RutImageSource *src);
+
+RutImageSource*
+rut_entity_get_image_source_cache (RutEntity *entity,
+                                   int slot);
 
 CoglBool
 rut_entity_get_visible (RutObject *entity);
