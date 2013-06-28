@@ -28,10 +28,10 @@
 
 #include "rut-context.h"
 #include "rut-interfaces.h"
+#include "components/rut-model.h"
 #include "rut-asset.h"
 #include "rut-util.h"
 #include "rut-mesh-ply.h"
-#include "components/rut-model.h"
 
 #if 0
 enum {
@@ -56,7 +56,8 @@ struct _RutAsset
 
   char *path;
   CoglTexture *texture;
-  RutMesh  *mesh;
+  RutMesh *mesh;
+  RutModel *model;
   CoglBool is_video;
 
   GList *inferred_tags;
@@ -157,9 +158,47 @@ static RutPLYAttribute ply_attributes[] =
     },
     .n_properties = 3,
     .min_components = 2,
+    .pad_n_components = 2,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
   },
   {
-    .name = "tangent",
+    .name = "cogl_tex_coord1_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 2,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "cogl_tex_coord4_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 2,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "cogl_tex_coord7_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 2,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "tangent_in",
     .properties = {
       { "tanx" },
       { "tany" },
@@ -550,13 +589,14 @@ rut_asset_new_full (RutContext *ctx,
       {
         RutPLYAttributeStatus padding_status[G_N_ELEMENTS (ply_attributes)];
         GError *error = NULL;
-        RutModel *model;
+        CoglBool needs_normals = FALSE;
+        CoglBool needs_tex_coords = FALSE;
 
         asset->mesh = rut_mesh_new_from_ply (ctx,
-                                             real_path,
-                                             ply_attributes,
-                                             G_N_ELEMENTS (ply_attributes),
-                                             padding_status,
+                                      			 real_path,
+                                      			 ply_attributes,
+                                      			 G_N_ELEMENTS (ply_attributes),
+                                      		   padding_status,
                                              &error);
 
         if (!asset->mesh)
@@ -568,8 +608,15 @@ rut_asset_new_full (RutContext *ctx,
             goto DONE;
           }
 
-        model = rut_model_new_from_mesh (ctx, asset->mesh);
-        asset->texture = rut_model_get_thumbnail (ctx, model);
+				if (padding_status[1] == RUT_PLY_ATTRIBUTE_STATUS_PADDED)
+					needs_normals = TRUE;
+
+				if (padding_status[2] == RUT_PLY_ATTRIBUTE_STATUS_PADDED)
+					needs_tex_coords = TRUE;
+
+        asset->model = rut_model_new_from_asset (ctx, asset, needs_normals,
+        																				 needs_tex_coords);
+        asset->texture = rut_model_get_thumbnail (ctx, asset->model);
 
         break;
       }
@@ -713,14 +760,16 @@ rut_asset_new_from_data (RutContext *ctx,
       {
         RutPLYAttributeStatus padding_status[G_N_ELEMENTS (ply_attributes)];
         GError *error = NULL;
+        CoglBool needs_normals = FALSE;
+        CoglBool needs_tex_coords = FALSE;
 
         asset->mesh = rut_mesh_new_from_ply_data (ctx,
-                                                  data,
-                                                  len,
-                                                  ply_attributes,
-                                                  G_N_ELEMENTS (ply_attributes),
-                                                  padding_status,
-                                                  &error);
+                                           				data,
+                                           				len,
+                                           				ply_attributes,
+                                           				G_N_ELEMENTS (ply_attributes),
+                                          				padding_status,
+                                           				&error);
         if (!asset->mesh)
           {
             g_slice_free (RutAsset, asset);
@@ -728,6 +777,16 @@ rut_asset_new_from_data (RutContext *ctx,
             g_error_free (error);
             return NULL;
           }
+
+				if (padding_status[1] == RUT_PLY_ATTRIBUTE_STATUS_PADDED)
+					needs_normals = TRUE;
+
+				if (padding_status[2] == RUT_PLY_ATTRIBUTE_STATUS_PADDED)
+					needs_tex_coords = TRUE;
+
+				asset->model = rut_model_new_from_asset (ctx, asset, needs_normals,
+																								 needs_tex_coords);
+        asset->texture = rut_model_get_thumbnail (ctx, asset->model);
 
         break;
       }
@@ -813,7 +872,13 @@ rut_asset_get_texture (RutAsset *asset)
 RutMesh *
 rut_asset_get_mesh (RutAsset *asset)
 {
-  return asset->mesh;
+	return asset->mesh;
+}
+
+RutObject *
+rut_asset_get_model (RutAsset *asset)
+{
+  return asset->model;
 }
 
 CoglBool

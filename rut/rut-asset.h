@@ -68,6 +68,9 @@ rut_asset_get_texture (RutAsset *asset);
 RutMesh *
 rut_asset_get_mesh (RutAsset *asset);
 
+RutObject *
+rut_asset_get_model (RutAsset *asset);
+
 CoglBool
 rut_asset_get_is_video (RutAsset *asset);
 

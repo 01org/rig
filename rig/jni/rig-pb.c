@@ -503,8 +503,8 @@ serialize_component_cb (RutComponent *component,
   else if (type == &rut_model_type)
     {
       RutModel *model = RUT_MODEL (component);
-      RutAsset *asset = rut_model_get_asset (model);
-      uint64_t asset_id = serializer_lookup_object_id (serializer, asset);
+      uint64_t asset_id = serializer_lookup_object_id (serializer,
+      																								 rut_model_get_asset (model));
 
       /* XXX: we don't support serializing a model loaded from a RutMesh */
       g_warn_if_fail (asset_id != 0);
@@ -1328,7 +1328,7 @@ unserialize_components (UnSerializer *unserializer,
                 break;
               }
 
-            model = rut_model_new_from_asset (unserializer->engine->ctx, asset);
+            model = rut_asset_get_model (asset);
             if (model)
               {
                 rut_refable_unref (asset);

@@ -49,7 +49,7 @@ struct _RutModel
 
   RutModelType type;
 
-  RutAsset *asset;
+	RutAsset *asset;
   RutMesh *mesh;
 
   float min_x;
@@ -63,24 +63,30 @@ struct _RutModel
 
   CoglPipeline *pipeline_cache;
   int normal_matrix_uniform;
+
+	CoglBool builtin_normals;
+	CoglBool builtin_tex_coords;
 };
 
 void
 _rut_model_init_type (void);
 
 RutModel *
-rut_model_new_from_mesh (RutContext *ctx, RutMesh *mesh);
+rut_model_new_from_mesh (RutContext *ctx, 
+												 RutMesh *mesh,
+												 CoglBool needs_normals,
+												 CoglBool needs_tex_coords);
 
 RutModel *
-rut_model_new_from_asset (RutContext *ctx, RutAsset *asset);
+rut_model_new_from_asset (RutContext *ctx, 
+													RutAsset *asset,
+													CoglBool needs_normals,
+													CoglBool needs_tex_coords);
 
 RutMesh *
 rut_model_get_mesh (RutObject *self);
 
 CoglPrimitive *
 rut_model_get_primitive (RutObject *object);
-
-RutAsset *
-rut_model_get_asset (RutModel *model);
 
 #endif /* _RUT_MODEL_H_ */

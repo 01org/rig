@@ -977,7 +977,7 @@ parse_start_element (GMarkupParseContext *context,
           return;
         }
 
-      model = rut_model_new_from_asset (loader->engine->ctx, asset);
+      model = rut_asset_get_model (asset);
       if (model)
         {
           rut_refable_unref (asset);
