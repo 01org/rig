@@ -36,22 +36,28 @@ _diamond_slice_free (void *object)
   g_slice_free (RutDiamondSlice, object);
 }
 
-static RutRefCountableVTable _diamond_slice_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _diamond_slice_free
-};
-
 RutType rut_diamond_slice_type;
 
 void
 _rut_diamond_slice_init_type (void)
 {
-  rut_type_init (&rut_diamond_slice_type, "RigDiamondSlice");
-  rut_type_add_interface (&rut_diamond_slice_type,
-                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                           offsetof (RutDiamondSlice, ref_count),
-                           &_diamond_slice_ref_countable_vtable);
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _diamond_slice_free
+  };
+
+  RutType *type = &rut_diamond_slice_type;
+
+#define TYPE RutDiamondSlice
+
+  rut_type_init (type, "RigDiamondSlice");
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_REF_COUNTABLE,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+
+#undef TYPE
 }
 
 typedef struct _VertexP2T2T2
@@ -302,44 +308,50 @@ _rut_diamond_free (void *object)
   g_slice_free (RutDiamond, diamond);
 }
 
-static RutRefCountableVTable _rut_diamond_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_diamond_free
-};
-
-static RutComponentableVTable _rut_diamond_componentable_vtable = {
-    0
-};
-
-static RutPrimableVTable _rut_diamond_primable_vtable = {
-  .get_primitive = rut_diamond_get_primitive
-};
-
-static RutPickableVTable _rut_diamond_pickable_vtable = {
-  .get_mesh = rut_diamond_get_pick_mesh
-};
-
 void
 _rut_diamond_init_type (void)
 {
-  rut_type_init (&rut_diamond_type, "RigDiamond");
-  rut_type_add_interface (&rut_diamond_type,
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_diamond_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    0
+  };
+
+  static RutPrimableVTable primable_vtable = {
+    .get_primitive = rut_diamond_get_primitive
+  };
+
+  static RutPickableVTable pickable_vtable = {
+    .get_mesh = rut_diamond_get_pick_mesh
+  };
+
+  RutType *type = &rut_diamond_type;
+
+#define TYPE RutDiamond
+
+  rut_type_init (type, "RigDiamond");
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                          offsetof (RutDiamond, ref_count),
-                          &_rut_diamond_ref_countable_vtable);
-  rut_type_add_interface (&rut_diamond_type,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_COMPONENTABLE,
-                          offsetof (RutDiamond, component),
-                          &_rut_diamond_componentable_vtable);
-  rut_type_add_interface (&rut_diamond_type,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PRIMABLE,
                           0, /* no associated properties */
-                          &_rut_diamond_primable_vtable);
-  rut_type_add_interface (&rut_diamond_type,
+                          &primable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PICKABLE,
                           0, /* no associated properties */
-                          &_rut_diamond_pickable_vtable);
+                          &pickable_vtable);
+
+#undef TYPE
 }
 
 RutDiamond *

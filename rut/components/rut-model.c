@@ -50,18 +50,6 @@ rut_model_get_primitive (RutObject *object)
 
 RutType rut_model_type;
 
-static RutComponentableVTable _rut_model_componentable_vtable = {
-  .draw = NULL
-};
-
-static RutPrimableVTable _rut_model_primable_vtable = {
-  .get_primitive = rut_model_get_primitive
-};
-
-static RutPickableVTable _rut_model_pickable_vtable = {
-  .get_mesh = rut_model_get_mesh
-};
-
 static void
 _rut_model_free (void *object)
 {
@@ -76,32 +64,50 @@ _rut_model_free (void *object)
   g_slice_free (RutModel, model);
 }
 
-static RutRefCountableVTable _rut_model_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_model_free
-};
-
 void
 _rut_model_init_type (void)
 {
-  rut_type_init (&rut_model_type, "RigModel");
-  rut_type_add_interface (&rut_model_type,
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_model_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    .draw = NULL
+  };
+
+  static RutPrimableVTable primable_vtable = {
+    .get_primitive = rut_model_get_primitive
+  };
+
+  static RutPickableVTable pickable_vtable = {
+    .get_mesh = rut_model_get_mesh
+  };
+
+  RutType *type = &rut_model_type;
+
+#define TYPE RutModel
+
+  rut_type_init (type, "RigModel");
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                          offsetof (RutModel, ref_count),
-                          &_rut_model_ref_countable_vtable);
-  rut_type_add_interface (&rut_model_type,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_COMPONENTABLE,
-                          offsetof (RutModel, component),
-                          &_rut_model_componentable_vtable);
-  rut_type_add_interface (&rut_model_type,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PRIMABLE,
                           0, /* no associated properties */
-                          &_rut_model_primable_vtable);
-  rut_type_add_interface (&rut_model_type,
+                          &primable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PICKABLE,
                           0, /* no associated properties */
-                          &_rut_model_pickable_vtable);
+                          &pickable_vtable);
+
+#undef TYPE
 }
 
 static RutModel *

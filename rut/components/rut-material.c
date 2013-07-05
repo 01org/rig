@@ -81,15 +81,6 @@ static RutPropertySpec _rut_material_prop_specs[] = {
 
 RutType rut_material_type;
 
-static RutComponentableVTable _rut_material_componentable_vtable = {
-    0
-};
-
-static RutIntrospectableVTable _rut_material_introspectable_vtable = {
-  rut_simple_introspectable_lookup_property,
-  rut_simple_introspectable_foreach_property
-};
-
 static void
 _rut_material_free (void *object)
 {
@@ -109,33 +100,47 @@ _rut_material_free (void *object)
   g_slice_free (RutMaterial, material);
 }
 
-static RutRefCountableVTable _rut_material_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_material_free
-};
-
 void
 _rut_material_init_type (void)
 {
-  rut_type_init (&rut_material_type, "RigMaterial");
-  rut_type_add_interface (&rut_material_type,
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_material_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    0
+  };
+
+  static RutIntrospectableVTable introspectable_vtable = {
+    rut_simple_introspectable_lookup_property,
+    rut_simple_introspectable_foreach_property
+  };
+
+  RutType *type = &rut_material_type;
+
+#define TYPE RutMaterial
+
+  rut_type_init (type, "RigMaterial");
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                          offsetof (RutMaterial, ref_count),
-                          &_rut_material_ref_countable_vtable);
-  rut_type_add_interface (&rut_material_type,
-                           RUT_INTERFACE_ID_COMPONENTABLE,
-                           offsetof (RutMaterial, component),
-                           &_rut_material_componentable_vtable);
-  rut_type_add_interface (&rut_material_type,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_COMPONENTABLE,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_INTROSPECTABLE,
                           0, /* no implied properties */
-                          &_rut_material_introspectable_vtable);
-  rut_type_add_interface (&rut_material_type,
+                          &introspectable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_SIMPLE_INTROSPECTABLE,
-                          offsetof (RutMaterial, introspectable),
+                          offsetof (TYPE, introspectable),
                           NULL); /* no implied vtable */
 
+#undef TYPE
 }
 
 RutMaterial *

@@ -50,22 +50,28 @@ _shape_model_free (void *object)
   g_slice_free (RutShapeModel, object);
 }
 
-static RutRefCountableVTable _shape_model_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _shape_model_free
-};
-
 RutType rut_shape_model_type;
 
 void
 _rut_shape_model_init_type (void)
 {
-  rut_type_init (&rut_shape_model_type, "RigShapeModel");
-  rut_type_add_interface (&rut_shape_model_type,
-                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                           offsetof (RutShapeModel, ref_count),
-                           &_shape_model_ref_countable_vtable);
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _shape_model_free
+  };
+
+  RutType *type = &rut_shape_model_type;
+
+#define TYPE RutShapeModel
+
+  rut_type_init (type, "RigShapeModel");
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_REF_COUNTABLE,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+
+#undef TYPE
 }
 
 typedef struct _VertexP2T2T2
@@ -298,57 +304,63 @@ _rut_shape_free (void *object)
   g_slice_free (RutShape, shape);
 }
 
-static RutRefCountableVTable _rut_shape_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_shape_free
-};
-
-static RutComponentableVTable _rut_shape_componentable_vtable = {
-    0
-};
-
-static RutPrimableVTable _rut_shape_primable_vtable = {
-  .get_primitive = rut_shape_get_primitive
-};
-
-static RutPickableVTable _rut_shape_pickable_vtable = {
-  .get_mesh = rut_shape_get_pick_mesh
-};
-
-static RutIntrospectableVTable _rut_shape_introspectable_vtable = {
-  rut_simple_introspectable_lookup_property,
-  rut_simple_introspectable_foreach_property
-};
-
 void
 _rut_shape_init_type (void)
 {
-  rut_type_init (&rut_shape_type, "RigShape");
-  rut_type_add_interface (&rut_shape_type,
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_shape_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    0
+  };
+
+  static RutPrimableVTable primable_vtable = {
+    .get_primitive = rut_shape_get_primitive
+  };
+
+  static RutPickableVTable pickable_vtable = {
+    .get_mesh = rut_shape_get_pick_mesh
+  };
+
+  static RutIntrospectableVTable introspectable_vtable = {
+    rut_simple_introspectable_lookup_property,
+    rut_simple_introspectable_foreach_property
+  };
+
+  RutType *type = &rut_shape_type;
+
+#define TYPE RutShape
+
+  rut_type_init (type, "RigShape");
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                          offsetof (RutShape, ref_count),
-                          &_rut_shape_ref_countable_vtable);
-  rut_type_add_interface (&rut_shape_type,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_COMPONENTABLE,
-                          offsetof (RutShape, component),
-                          &_rut_shape_componentable_vtable);
-  rut_type_add_interface (&rut_shape_type,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PRIMABLE,
                           0, /* no associated properties */
-                          &_rut_shape_primable_vtable);
-  rut_type_add_interface (&rut_shape_type,
+                          &primable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PICKABLE,
                           0, /* no associated properties */
-                          &_rut_shape_pickable_vtable);
-  rut_type_add_interface (&rut_shape_type,
+                          &pickable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_INTROSPECTABLE,
                           0, /* no implied properties */
-                          &_rut_shape_introspectable_vtable);
-  rut_type_add_interface (&rut_shape_type,
+                          &introspectable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_SIMPLE_INTROSPECTABLE,
-                          offsetof (RutShape, introspectable),
+                          offsetof (TYPE, introspectable),
                           NULL); /* no implied vtable */
+
+#undef TYPE
 }
 
 RutShape *

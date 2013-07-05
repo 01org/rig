@@ -82,22 +82,28 @@ _pointalism_grid_slice_free (void *object)
   g_slice_free (RutPointalismGridSlice, object);
 }
 
-static RutRefCountableVTable _pointalism_grid_slice_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _pointalism_grid_slice_free
-};
-
 RutType rut_pointalism_grid_slice_type;
 
 void
 _rut_pointalism_grid_slice_init_type (void)
 {
-  rut_type_init (&rut_pointalism_grid_slice_type, "RigPointalismGridSlice");
-  rut_type_add_interface (&rut_pointalism_grid_slice_type,
-                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                           offsetof (RutPointalismGridSlice, ref_count),
-                           &_pointalism_grid_slice_ref_countable_vtable);
+  static RutRefCountableVTable refable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _pointalism_grid_slice_free
+  };
+
+  RutType *type = &rut_pointalism_grid_slice_type;
+
+#define TYPE RutPointalismGridSlice
+
+  rut_type_init (type, G_STRINGIFY (TYPE));
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_REF_COUNTABLE,
+                          offsetof (TYPE, ref_count),
+                          &refable_vtable);
+
+#undef TYPE
 }
 
 typedef struct _GridVertex
@@ -368,59 +374,65 @@ _rut_pointalism_grid_free (void *object)
   g_slice_free (RutPointalismGrid, grid);
 }
 
-static RutRefCountableVTable _rut_pointalism_grid_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_pointalism_grid_free
-};
-
-static RutComponentableVTable _rut_pointalism_grid_componentable_vtable = {
-    0
-};
-
-static RutPrimableVTable _rut_pointalism_grid_primable_vtable = {
-  .get_primitive = rut_pointalism_grid_get_primitive
-};
-
-static RutPickableVTable _rut_pointalism_grid_pickable_vtable = {
-  .get_mesh = rut_pointalism_grid_get_pick_mesh
-};
-
-static RutIntrospectableVTable _rut_pointalism_grid_introspectable_vtable = {
-  rut_simple_introspectable_lookup_property,
-  rut_simple_introspectable_foreach_property
-};
-
 void
 _rut_pointalism_grid_init_type (void)
 {
-  rut_type_init (&rut_pointalism_grid_type, "RigPointalismGrid");
-  rut_type_add_interface (&rut_pointalism_grid_type,
+  static RutRefCountableVTable refable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_pointalism_grid_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    NULL
+  };
+
+  static RutPrimableVTable primable_vtable = {
+    .get_primitive = rut_pointalism_grid_get_primitive
+  };
+
+  static RutPickableVTable pickable_vtable = {
+    .get_mesh = rut_pointalism_grid_get_pick_mesh
+  };
+
+  static RutIntrospectableVTable introspectable_vtable = {
+    rut_simple_introspectable_lookup_property,
+    rut_simple_introspectable_foreach_property
+  };
+
+  RutType *type = &rut_pointalism_grid_type;
+
+#define TYPE RutPointalismGrid
+
+  rut_type_init (type, G_STRINGIFY (TYPE));
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                          offsetof (RutPointalismGrid, ref_count),
-                          &_rut_pointalism_grid_ref_countable_vtable);
-  rut_type_add_interface (&rut_pointalism_grid_type,
+                          offsetof (TYPE, ref_count),
+                          &refable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_COMPONENTABLE,
-                          offsetof (RutPointalismGrid, component),
-                          &_rut_pointalism_grid_componentable_vtable);
-  rut_type_add_interface (&rut_pointalism_grid_type,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PRIMABLE,
                           0, /* no associated properties */
-                          &_rut_pointalism_grid_primable_vtable);
-  rut_type_add_interface (&rut_pointalism_grid_type,
+                          &primable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_PICKABLE,
                           0, /* no associated properties */
-                          &_rut_pointalism_grid_pickable_vtable);
+                          &pickable_vtable);
 
-  rut_type_add_interface (&rut_pointalism_grid_type,
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_INTROSPECTABLE,
                           0,
-                          &_rut_pointalism_grid_introspectable_vtable);
+                          &introspectable_vtable);
 
-  rut_type_add_interface (&rut_pointalism_grid_type,
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_SIMPLE_INTROSPECTABLE,
-                          offsetof (RutPointalismGrid, introspectable),
+                          offsetof (TYPE, introspectable),
                           NULL);
+
+#undef TYPE
 }
 
 RutPointalismGrid *

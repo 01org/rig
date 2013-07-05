@@ -120,10 +120,6 @@ rut_light_update (RutObject *object,
 
 RutType rut_light_type;
 
-static RutComponentableVTable _rut_light_componentable_vtable = {
-  .update = rut_light_update
-};
-
 static void
 _rut_light_free (void *object)
 {
@@ -131,37 +127,47 @@ _rut_light_free (void *object)
   g_slice_free (RutLight, light);
 }
 
-static RutRefCountableVTable _rut_light_ref_countable_vtable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_light_free
-};
-
-static RutIntrospectableVTable _rut_light_introspectable_vtable = {
-  rut_simple_introspectable_lookup_property,
-  rut_simple_introspectable_foreach_property
-};
-
 void
 _rut_light_init_type (void)
 {
-  rut_type_init (&rut_light_type, "RigLight");
-  rut_type_add_interface (&rut_light_type,
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_light_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    .update = rut_light_update
+  };
+
+  static RutIntrospectableVTable introspectable_vtable = {
+    rut_simple_introspectable_lookup_property,
+    rut_simple_introspectable_foreach_property
+  };
+
+  RutType *type = &rut_light_type;
+
+#define TYPE RutLight
+
+  rut_type_init (type, "RigLight");
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                          offsetof (RutLight, ref_count),
-                          &_rut_light_ref_countable_vtable);
-  rut_type_add_interface (&rut_light_type,
-                           RUT_INTERFACE_ID_COMPONENTABLE,
-                           offsetof (RutLight, component),
-                           &_rut_light_componentable_vtable);
-  rut_type_add_interface (&rut_light_type,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_COMPONENTABLE,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_INTROSPECTABLE,
                           0, /* no implied properties */
-                          &_rut_light_introspectable_vtable);
-  rut_type_add_interface (&rut_light_type,
+                          &introspectable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_SIMPLE_INTROSPECTABLE,
-                          offsetof (RutLight, introspectable),
+                          offsetof (TYPE, introspectable),
                           NULL); /* no implied vtable */
+
+#undef TYPE
 }
 
 RutLight *

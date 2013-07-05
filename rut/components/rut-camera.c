@@ -166,12 +166,6 @@ _rut_camera_free (void *object)
   g_slice_free (RutCamera, object);
 }
 
-RutRefCountableVTable _rut_camera_ref_countable = {
-  rut_refable_simple_ref,
-  rut_refable_simple_unref,
-  _rut_camera_free
-};
-
 #if 0
 static RutGraphableVTable _rut_camera_graphable_vtable = {
   NULL, /* child remove */
@@ -315,49 +309,60 @@ done:
   camera->in_frame = TRUE;
 }
 
-static RutComponentableVTable _rut_camera_componentable_vtable = {
-  .draw = NULL
-};
-
-static RutIntrospectableVTable _rut_camera_introspectable_vtable = {
-  rut_simple_introspectable_lookup_property,
-  rut_simple_introspectable_foreach_property
-};
-
-
 RutType rut_camera_type;
 
 void
 _rut_camera_init_type (void)
 {
-  rut_type_init (&rut_camera_type, "RigCamera");
-  rut_type_add_interface (&rut_camera_type,
-                           RUT_INTERFACE_ID_REF_COUNTABLE,
-                           offsetof (RutCamera, ref_count),
-                           &_rut_camera_ref_countable);
-  rut_type_add_interface (&rut_camera_type,
-                           RUT_INTERFACE_ID_COMPONENTABLE,
-                           offsetof (RutCamera, component),
-                           &_rut_camera_componentable_vtable);
-  rut_type_add_interface (&rut_camera_type,
+  static RutRefCountableVTable ref_countable_vtable = {
+    rut_refable_simple_ref,
+    rut_refable_simple_unref,
+    _rut_camera_free
+  };
+
+  static RutComponentableVTable componentable_vtable = {
+    .draw = NULL
+  };
+
+  static RutIntrospectableVTable introspectable_vtable = {
+    rut_simple_introspectable_lookup_property,
+    rut_simple_introspectable_foreach_property
+  };
+
+  RutType *type = &rut_camera_type;
+
+#define TYPE RutCamera
+
+  rut_type_init (type, G_STRINGIFY (TYPE));
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_REF_COUNTABLE,
+                          offsetof (TYPE, ref_count),
+                          &ref_countable_vtable);
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_COMPONENTABLE,
+                          offsetof (TYPE, component),
+                          &componentable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_INTROSPECTABLE,
                           0, /* no implied properties */
-                          &_rut_camera_introspectable_vtable);
-  rut_type_add_interface (&rut_camera_type,
+                          &introspectable_vtable);
+  rut_type_add_interface (type,
                           RUT_INTERFACE_ID_SIMPLE_INTROSPECTABLE,
-                          offsetof (RutCamera, introspectable),
+                          offsetof (TYPE, introspectable),
                           NULL); /* no implied vtable */
 
 #if 0
-  rut_type_add_interface (&rut_camera_type,
-                           RUT_INTERFACE_ID_GRAPHABLE,
-                           offsetof (RutCamera, graphable),
-                           &_rut_camera_graphable_vtable);
-  rut_type_add_interface (&rut_camera_type,
-                           RUT_INTERFACE_ID_TRANSFORMABLE,
-                           0,
-                           &_rut_camera_transformable_vtable);
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_GRAPHABLE,
+                          offsetof (TYPE, graphable),
+                          &graphable_vtable);
+  rut_type_add_interface (type,
+                          RUT_INTERFACE_ID_TRANSFORMABLE,
+                          0,
+                          &transformable_vtable);
 #endif
+
+#undef TYPE
 }
 
 RutCamera *
