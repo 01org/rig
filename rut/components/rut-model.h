@@ -30,6 +30,7 @@
 
 #define RUT_MODEL(p) ((RutModel *)(p))
 typedef struct _RutModel RutModel;
+typedef struct _RutModelPrivate RutModelPrivate;
 extern RutType rut_model_type;
 
 typedef enum _RutModelType
@@ -49,8 +50,12 @@ struct _RutModel
 
   RutModelType type;
 
-	RutAsset *asset;
+  RutAsset *asset;
+
+  RutModelPrivate *priv;
+
   RutMesh *mesh;
+  RutMesh *patched_mesh;
 
   float min_x;
   float max_x;
@@ -89,7 +94,7 @@ rut_model_get_mesh (RutObject *self);
 CoglPrimitive *
 rut_model_get_primitive (RutObject *object);
 
-RutAsset *
-rut_model_get_asset (RutModel *model);
+RutMesh *
+rut_model_get_patched_mesh (RutObject *object);
 
 #endif /* _RUT_MODEL_H_ */
