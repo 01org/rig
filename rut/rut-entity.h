@@ -79,14 +79,6 @@ enum
   RUT_ENTITY_N_PROPS
 };
 
-/* XXX: at some point we should perhaps separate out the Rig rendering code
- * into a "Renderer" and let that code somehow define how many slots it wants
- * associated with an entity for caching state. */
-#define N_PIPELINE_CACHE_SLOTS 3
-#define N_IMAGE_SOURCE_CACHE_SLOTS 3
-#define N_PRIMITIVE_CACHE_SLOTS 1
-
-
 struct _RutEntity
 {
   RutObjectProps _parent;
@@ -105,14 +97,6 @@ struct _RutEntity
   CoglMatrix transform;
 
   GPtrArray *components;
-
-  /* TODO: We should have a ->renderer_priv member instead and
-   * since each renderer will know best how it wants to track
-   * pipelines and caches of primitives associated with each
-   * entity. */
-  CoglPipeline *pipeline_caches[N_PIPELINE_CACHE_SLOTS];
-  RutImageSource *image_source_caches[N_IMAGE_SOURCE_CACHE_SLOTS];
-  CoglPrimitive *primitive_caches[N_PRIMITIVE_CACHE_SLOTS];
 
   void *renderer_priv;
 
@@ -271,34 +255,6 @@ void
 rut_entity_foreach_component_safe (RutEntity *entity,
                                    RutComponentCallback callback,
                                    void *user_data);
-
-void
-rut_entity_set_pipeline_cache (RutEntity *entity,
-                               int slot,
-                               CoglPipeline *pipeline);
-
-CoglPipeline *
-rut_entity_get_pipeline_cache (RutEntity *entity,
-                               int slot);
-
-void
-rut_entity_set_image_source_cache (RutEntity *entity,
-                                   int slot,
-                                   RutImageSource *src);
-
-RutImageSource *
-rut_entity_get_image_source_cache (RutEntity *entity,
-                                   int slot);
-
-
-void
-rut_entity_set_primitive_cache (RutEntity *entity,
-                                int slot,
-                                CoglPrimitive *primitive);
-
-CoglPrimitive *
-rut_entity_get_primitive_cache (RutEntity *entity,
-                                int slot);
 
 CoglBool
 rut_entity_get_visible (RutObject *entity);

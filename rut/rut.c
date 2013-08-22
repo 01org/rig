@@ -262,11 +262,9 @@ rut_load_texture (RutContext *ctx, const char *filename, CoglError **error)
   if (entry)
     return cogl_object_ref (entry->texture);
 
-  texture = COGL_TEXTURE (
-    cogl_texture_2d_new_from_file (ctx->cogl_context,
-                                   filename,
-                                   COGL_PIXEL_FORMAT_ANY,
-                                   error));
+  texture = (CoglTexture*) 
+    cogl_texture_2d_new_from_file (ctx->cogl_context, filename,
+                                   COGL_PIXEL_FORMAT_ANY, error);
   if (!texture)
     return NULL;
 

@@ -98,10 +98,6 @@ static void
 _rut_entity_free (void *object)
 {
   RutEntity *entity = object;
-  CoglPipeline **pipeline_caches = entity->pipeline_caches;
-  RutImageSource **image_source_caches = entity->image_source_caches;
-  CoglPrimitive **primitive_caches = entity->primitive_caches;
-  int i;
 
   g_free (entity->label);
 
@@ -112,24 +108,6 @@ _rut_entity_free (void *object)
   g_ptr_array_free (entity->components, TRUE);
 
   rut_graphable_destroy (entity);
-
-  for (i = 0; i < N_PIPELINE_CACHE_SLOTS; i++)
-    {
-      if (pipeline_caches[i])
-        cogl_object_unref (pipeline_caches[i]);
-    }
-
-  for (i = 0; i < N_IMAGE_SOURCE_CACHE_SLOTS; i++)
-    {
-      if (image_source_caches[i])
-        rut_refable_unref (image_source_caches[i]);
-    }
-
-  for (i = 0; i < N_PRIMITIVE_CACHE_SLOTS; i++)
-  {
-    if (primitive_caches[i])
-      rut_refable_unref (primitive_caches[i]);
-  }
 
   if (entity->renderer_priv)
     {
@@ -659,66 +637,6 @@ rut_entity_foreach_component (RutEntity *entity,
   int i;
   for (i = 0; i < entity->components->len; i++)
     callback (g_ptr_array_index (entity->components, i), user_data);
-}
-
-void
-rut_entity_set_pipeline_cache (RutEntity *entity,
-                               int slot,
-                               CoglPipeline *pipeline)
-{
-  if (entity->pipeline_caches[slot])
-    cogl_object_unref (entity->pipeline_caches[slot]);
-
-  entity->pipeline_caches[slot] = pipeline;
-  if (pipeline)
-    cogl_object_ref (pipeline);
-}
-
-CoglPipeline *
-rut_entity_get_pipeline_cache (RutEntity *entity,
-                               int slot)
-{
-  return entity->pipeline_caches[slot];
-}
-
-void
-rut_entity_set_image_source_cache (RutEntity *entity,
-                                   int slot,
-                                   RutImageSource *source)
-{
-  if (entity->image_source_caches[slot])
-    rut_refable_unref (entity->image_source_caches[slot]);
-
-  entity->image_source_caches[slot] = source;
-  if (source)
-    rut_refable_ref (source);
-}
-
-RutImageSource*
-rut_entity_get_image_source_cache (RutEntity *entity,
-                                   int slot)
-{
-  return entity->image_source_caches[slot];
-}
-
-void
-rut_entity_set_primitive_cache (RutEntity *entity,
-                                int slot,
-                                CoglPrimitive *primitive)
-{
-  if (entity->primitive_caches[slot])
-    cogl_object_unref (entity->primitive_caches[slot]);
-
-  entity->primitive_caches[slot] = primitive;
-  if (primitive)
-    cogl_object_ref (primitive);
-}
-
-CoglPrimitive *
-rut_entity_get_primitive_cache (RutEntity *entity,
-                                int slot)
-{
-  return entity->primitive_caches[slot];
 }
 
 CoglBool

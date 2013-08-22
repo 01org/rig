@@ -238,6 +238,18 @@ static RutPLYAttribute ply_attributes[] =
     .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
   },
   {
+    .name = "cogl_tex_coord11_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 2,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
     .name = "tangent_in",
     .properties = {
       { "tanx" },

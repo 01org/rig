@@ -250,8 +250,10 @@ struct _RigEngine
   CoglSnippet *pointalism_halo_snippet;
   CoglSnippet *pointalism_opaque_snippet;
   CoglSnippet *cache_position_snippet;
-  CoglSnippet *hair_fragment_snippet;
+  CoglSnippet *hair_simple_snippet;
+  CoglSnippet *hair_material_snippet;
   CoglSnippet *hair_vertex_snippet;
+  CoglSnippet *hair_fin_snippet;
 
   GHashTable *assets_registry;
 

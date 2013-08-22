@@ -58,6 +58,8 @@ struct _RutPointalismGrid
 
   RutContext *ctx;
 
+  RutList updated_cb_list;
+
   RutPointalismGridSlice *slice;
 
   RutMesh *pick_mesh;
@@ -115,5 +117,13 @@ rut_pointalism_grid_get_cell_size (RutObject *obj);
 void
 rut_pointalism_grid_set_cell_size (RutObject *obj,
                                    float rows);
+
+typedef void (* RutPointalismGridUpdateCallback) (RutPointalismGrid *grid,
+                                                  void *user_data);
+RutClosure *
+rut_pointalism_grid_add_update_callback (RutPointalismGrid *grid,
+                                         RutPointalismGridUpdateCallback callback,
+                                         void *user_data,
+                                         RutClosureDestroyCallback destroy_cb);
 
 #endif /* __RUT_POINTALISM_GRID_H__ */

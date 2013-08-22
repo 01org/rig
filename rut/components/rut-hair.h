@@ -24,12 +24,18 @@
 #include "rut-model.h"
 
 enum {
+  RUT_HAIR_SHELL_POSITION_BLENDED,
+  RUT_HAIR_SHELL_POSITION_UNBLENDED,
+  RUT_HAIR_SHELL_POSITION_SHADOW,
+  RUT_HAIR_LENGTH,
+  RUT_HAIR_N_UNIFORMS
+};
+
+enum {
   RUT_HAIR_PROP_LENGTH,
   RUT_HAIR_PROP_DETAIL,
-  RUT_HAIR_PROP_GRAVITY,
   RUT_HAIR_PROP_DENSITY,
   RUT_HAIR_PROP_THICKNESS,
-  RUT_HAIR_PROP_RESOLUTION,
   RUT_HAIR_N_PROPS
 };
 
@@ -45,27 +51,29 @@ struct _RutHair
 
   RutComponentableProps component;
   RutContext *ctx;
-  CoglTexture **textures;
   CoglTexture *circle;
+  CoglTexture *fin_texture;
+  float *shell_positions;
+  GArray *shell_textures;
+  GArray *particles;
 
   float length;
   int n_shells;
-  float gravity;
+  int n_textures;
   int density;
   float thickness;
-  int resolution;
+  int uniform_locations[4];
 
   RutSimpleIntrospectableProps introspectable;
   RutProperty properties[RUT_HAIR_N_PROPS];
 
-  unsigned int dirty_textures: 1;
+  unsigned int dirty_shell_textures: 1;
+  unsigned int dirty_fin_texture: 1;
+  unsigned int dirty_hair_positions: 1;
 };
 
 void
 _rut_hair_init_type (void);
-
-CoglTexture *
-rut_hair_get_texture (RutObject *obj, int layer);
 
 RutHair *
 rut_hair_new (RutContext *ctx);
@@ -84,13 +92,6 @@ void
 rut_hair_set_n_shells (RutObject *obj,
                        int n_shells);
 
-float
-rut_hair_get_gravity (RutObject *obj);
-
-void
-rut_hair_set_gravity (RutObject *obj,
-                      float gravity);
-
 int
 rut_hair_get_density (RutObject *obj);
 
@@ -105,11 +106,22 @@ void
 rut_hair_set_thickness (RutObject *obj,
                         float thickness);
 
-int
-rut_hair_get_resolution (RutObject *obj);
+void
+rut_hair_update_state (RutHair *hair);
+
+float
+rut_hair_get_shell_position (RutObject *obj,
+                             int shell);
 
 void
-rut_hair_set_resolution (RutObject *obj,
-                         int resolution);
+rut_hair_set_uniform_location (RutObject *obj,
+                               CoglPipeline *pln,
+                               int uniform);
+
+void
+rut_hair_set_uniform_float_value (RutObject *obj,
+                                  CoglPipeline *pln,
+                                  int uniform,
+                                  float value);
 
 #endif

@@ -948,9 +948,14 @@ apply_asset_input_to_entity (RutEntity *entity,
           geom = rut_entity_get_component (entity,
                                            RUT_COMPONENT_TYPE_GEOMETRY);
 
-          if (geom && rut_object_get_type (geom) == &rut_model_type &&
-              geom == rut_asset_get_model (asset))
-            break;
+          if (geom && rut_object_get_type (geom) == &rut_model_type)
+            {
+              model = geom;
+              if (model == rut_asset_get_model (asset))
+                break;
+              else
+                rig_undo_journal_delete_component_and_log (sub_journal, model);
+            }
           else if (geom)
             rig_undo_journal_delete_component_and_log (sub_journal, geom);
 
@@ -1209,6 +1214,19 @@ apply_asset_input_to_entity (RutEntity *entity,
 
           hair = rut_hair_new (engine->ctx);
           rut_entity_add_component (entity, hair);
+          geom = rut_entity_get_component (entity,
+                                           RUT_COMPONENT_TYPE_GEOMETRY);
+
+          if (geom && rut_object_get_type (geom) == &rut_model_type)
+            {
+              RutModel *hair_geom = rut_model_new_for_hair (geom);
+
+              rut_hair_set_length (hair,
+                                   rut_model_get_default_hair_length (hair_geom));
+
+              rig_undo_journal_delete_component_and_log (sub_journal, geom);
+              rig_undo_journal_add_component_and_log (sub_journal, entity, hair_geom);
+            }
 
           rut_renderer_notify_entity_changed (engine->renderer, entity);
         }
@@ -1615,6 +1633,18 @@ static RutPLYAttribute ply_attributes[] =
   },
   {
     .name = "cogl_tex_coord7_in",
+    .properties = {
+      { "s" },
+      { "t" },
+      { "r" },
+    },
+    .n_properties = 3,
+    .min_components = 2,
+    .pad_n_components = 3,
+    .pad_type = RUT_ATTRIBUTE_TYPE_FLOAT,
+  },
+  {
+    .name = "cogl_tex_coord11_in",
     .properties = {
       { "s" },
       { "t" },

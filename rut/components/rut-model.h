@@ -30,6 +30,7 @@
 
 #define RUT_MODEL(p) ((RutModel *)(p))
 typedef struct _RutModel RutModel;
+typedef struct _RutModelPrivate RutModelPrivate;
 extern RutType rut_model_type;
 
 typedef enum _RutModelType
@@ -50,6 +51,7 @@ struct _RutModel
   RutModelType type;
 
   RutAsset *asset;
+
   RutMesh *mesh;
 
   float min_x;
@@ -63,6 +65,15 @@ struct _RutModel
 
   CoglBool builtin_normals;
   CoglBool builtin_tex_coords;
+
+  /* TODO: I think maybe we should make RutHair and RutModel mutually
+   * exclusive and move all of this stuff to RutHair instead. */
+  bool is_hair_model;
+  RutModelPrivate *priv;
+  RutMesh *patched_mesh;
+  RutMesh *fin_mesh;
+  CoglPrimitive *fin_primitive;
+  float default_hair_length;
 };
 
 void
@@ -80,13 +91,19 @@ rut_model_new_from_asset (RutContext *ctx,
                           CoglBool needs_normals,
                           CoglBool needs_tex_coords);
 
+RutModel *
+rut_model_new_for_hair (RutModel *base);
+
 RutMesh *
 rut_model_get_mesh (RutObject *self);
 
 CoglPrimitive *
 rut_model_get_primitive (RutObject *object);
 
-RutAsset *
-rut_model_get_asset (RutModel *model);
+CoglPrimitive *
+rut_model_get_fin_primitive (RutObject *object);
+
+float
+rut_model_get_default_hair_length (RutObject *object);
 
 #endif /* _RUT_MODEL_H_ */

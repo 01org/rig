@@ -78,7 +78,7 @@ mesh_new_p2t2t2 (CoglVerticesMode mode,
                  VertexP2T2T2 *vertices)
 {
   RutMesh *mesh;
-  RutAttribute *attributes[7];
+  RutAttribute *attributes[8];
   RutBuffer *vertex_buffer;
   RutBuffer *index_buffer;
 
@@ -123,22 +123,29 @@ mesh_new_p2t2t2 (CoglVerticesMode mode,
                                      2,
                                      RUT_ATTRIBUTE_TYPE_FLOAT);
 
-
   attributes[5] = rut_attribute_new (vertex_buffer,
+                                     "cogl_tex_coord11_in",
+                                     sizeof (VertexP2T2T2),
+                                     offsetof (VertexP2T2T2, s1),
+                                     2,
+                                     RUT_ATTRIBUTE_TYPE_FLOAT);
+
+
+  attributes[6] = rut_attribute_new (vertex_buffer,
                                      "cogl_normal_in",
                                      sizeof (VertexP2T2T2),
                                      offsetof (VertexP2T2T2, Nx),
                                      3,
                                      RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  attributes[6] = rut_attribute_new (vertex_buffer,
+  attributes[7] = rut_attribute_new (vertex_buffer,
                                      "tangent_in",
                                      sizeof (VertexP2T2T2),
                                      offsetof (VertexP2T2T2, Tx),
                                      3,
                                      RUT_ATTRIBUTE_TYPE_FLOAT);
 
-  mesh = rut_mesh_new (mode, n_vertices, attributes, 7);
+  mesh = rut_mesh_new (mode, n_vertices, attributes, 8);
   rut_mesh_set_indices (mesh,
                         COGL_INDICES_TYPE_UNSIGNED_BYTE,
                         index_buffer,
